@@ -89,7 +89,7 @@ class BlocklikeTraits<BlockContents> {
   static BlockContents* Create(BlockContents&& contents,
                                size_t /* read_amp_bytes_per_bit */,
                                Statistics* /* statistics */,
-                               bool /* using_zstd */,
+                               CompressionType /* compression_type */,
                                const FilterPolicy* /* filter_policy */) {
     return new BlockContents(std::move(contents));
   }
@@ -105,7 +105,7 @@ class BlocklikeTraits<ParsedFullFilterBlock> {
   static ParsedFullFilterBlock* Create(BlockContents&& contents,
                                        size_t /* read_amp_bytes_per_bit */,
                                        Statistics* /* statistics */,
-                                       bool /* using_zstd */,
+                                       CompressionType /* compression_type */,
                                        const FilterPolicy* filter_policy) {
     return new ParsedFullFilterBlock(filter_policy, std::move(contents));
   }
@@ -119,7 +119,8 @@ template <>
 class BlocklikeTraits<Block> {
  public:
   static Block* Create(BlockContents&& contents, size_t read_amp_bytes_per_bit,
-                       Statistics* statistics, bool /* using_zstd */,
+                       Statistics* statistics,
+                       CompressionType /* compression_type */,
                        const FilterPolicy* /* filter_policy */) {
     return new Block(std::move(contents), read_amp_bytes_per_bit, statistics);
   }
@@ -135,10 +136,10 @@ class BlocklikeTraits<UncompressionDict> {
   static UncompressionDict* Create(BlockContents&& contents,
                                    size_t /* read_amp_bytes_per_bit */,
                                    Statistics* /* statistics */,
-                                   bool using_zstd,
+                                   CompressionType compression_type,
                                    const FilterPolicy* /* filter_policy */) {
     return new UncompressionDict(contents.data, std::move(contents.allocation),
-                                 using_zstd);
+                                 compression_type);
   }
 
   static uint32_t GetNumRestarts(const UncompressionDict& /* dict */) {
@@ -161,8 +162,8 @@ Status ReadBlockFromFile(
     bool do_uncompress, bool maybe_compressed, BlockType block_type,
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, size_t read_amp_bytes_per_bit,
-    MemoryAllocator* memory_allocator, bool for_compaction, bool using_zstd,
-    const FilterPolicy* filter_policy) {
+    MemoryAllocator* memory_allocator, bool for_compaction,
+    CompressionType compression_type, const FilterPolicy* filter_policy) {
   assert(result);
 
   BlockContents contents;
@@ -174,7 +175,7 @@ Status ReadBlockFromFile(
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(contents), read_amp_bytes_per_bit, ioptions.statistics,
-        using_zstd, filter_policy));
+        compression_type, filter_policy));
   }
 
   return s;
@@ -849,11 +850,9 @@ Status BlockBasedTable::ReadPropertiesBlock(
       rep_->blocks_maybe_compressed =
           rep_->table_properties->compression_name !=
           CompressionTypeToString(kNoCompression);
-      rep_->blocks_definitely_zstd_compressed =
-          (rep_->table_properties->compression_name ==
-               CompressionTypeToString(kZSTD) ||
-           rep_->table_properties->compression_name ==
-               CompressionTypeToString(kZSTDNotFinalCompression));
+      rep_->compression_type = static_cast<CompressionType>(
+          CompressorRegistry::NewInstance()->GetCompressorType(
+              rep_->table_properties->compression_name));
     }
   } else {
     ROCKS_LOG_ERROR(rep_->ioptions.info_log,
@@ -1154,7 +1153,7 @@ Status BlockBasedTable::ReadMetaIndexBlock(
       true /* decompress */, true /*maybe_compressed*/, BlockType::kMetaIndex,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       0 /* read_amp_bytes_per_bit */, GetMemoryAllocator(rep_->table_options),
-      false /* for_compaction */, rep_->blocks_definitely_zstd_compressed,
+      false /* for_compaction */, rep_->compression_type,
       nullptr /* filter_policy */);
 
   if (!s.ok()) {
@@ -1243,7 +1242,7 @@ Status BlockBasedTable::GetDataBlockFromCache(
     std::unique_ptr<TBlocklike> block_holder(
         BlocklikeTraits<TBlocklike>::Create(
             std::move(contents), read_amp_bytes_per_bit, statistics,
-            rep_->blocks_definitely_zstd_compressed,
+            rep_->compression_type,
             rep_->table_options.filter_policy.get()));  // uncompressed block
 
     if (block_cache != nullptr && block_holder->own_bytes() &&
@@ -1316,13 +1315,12 @@ Status BlockBasedTable::PutDataBlockToCache(
 
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(uncompressed_block_contents), read_amp_bytes_per_bit,
-        statistics, rep_->blocks_definitely_zstd_compressed,
+        statistics, rep_->compression_type,
         rep_->table_options.filter_policy.get()));
   } else {
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(*raw_block_contents), read_amp_bytes_per_bit, statistics,
-        rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get()));
+        rep_->compression_type, rep_->table_options.filter_policy.get()));
   }
 
   // Insert compressed block into compressed block cache.
@@ -1941,8 +1939,7 @@ Status BlockBasedTable::RetrieveBlock(
             ? rep_->table_options.read_amp_bytes_per_bit
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
-        rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get());
+        rep_->compression_type, rep_->table_options.filter_policy.get());
 
     if (get_context) {
       switch (block_type) {

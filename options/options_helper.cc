@@ -295,10 +295,9 @@ std::unordered_map<std::string, CompressionType>
 
 std::vector<CompressionType> GetSupportedCompressions() {
   std::vector<CompressionType> supported_compressions;
-  for (const auto& comp_to_name : OptionsHelper::compression_type_string_map) {
-    CompressionType t = comp_to_name.second;
-    if (t != kDisableCompressionOption && CompressionTypeSupported(t)) {
-      supported_compressions.push_back(t);
+  for (int t = 1; t <= CompressorRegistry::maxCompressorType; t++) {
+    if (CompressionTypeSupported(static_cast<CompressionType>(t))) {
+      supported_compressions.push_back(static_cast<CompressionType>(t));
     }
   }
   return supported_compressions;
@@ -306,10 +305,9 @@ std::vector<CompressionType> GetSupportedCompressions() {
 
 std::vector<CompressionType> GetSupportedDictCompressions() {
   std::vector<CompressionType> dict_compression_types;
-  for (const auto& comp_to_name : OptionsHelper::compression_type_string_map) {
-    CompressionType t = comp_to_name.second;
-    if (t != kDisableCompressionOption && DictCompressionTypeSupported(t)) {
-      dict_compression_types.push_back(t);
+  for (int t = 1; t <= CompressorRegistry::maxCompressorType; t++) {
+    if (DictCompressionTypeSupported(static_cast<CompressionType>(t))) {
+      dict_compression_types.push_back(static_cast<CompressionType>(t));
     }
   }
   return dict_compression_types;

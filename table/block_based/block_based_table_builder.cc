@@ -1654,9 +1654,7 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
   }
   r->compression_dict.reset(new CompressionDict(dict, r->compression_type,
                                                 r->compression_opts.level));
-  r->verify_dict.reset(new UncompressionDict(
-      dict, r->compression_type == kZSTD ||
-                r->compression_type == kZSTDNotFinalCompression));
+  r->verify_dict.reset(new UncompressionDict(dict, r->compression_type));
 
   for (size_t i = 0; ok() && i < r->data_block_and_keys_buffers.size(); ++i) {
     auto& data_block = r->data_block_and_keys_buffers[i].first;

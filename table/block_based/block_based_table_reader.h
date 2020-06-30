@@ -589,11 +589,7 @@ struct BlockBasedTable::Rep {
   // before reading individual blocks enables certain optimizations.
   bool blocks_maybe_compressed = true;
 
-  // If true, data blocks in this file are definitely ZSTD compressed. If false
-  // they might not be. When false we skip creating a ZSTD digested
-  // uncompression dictionary. Even if we get a false negative, things should
-  // still work, just not as quickly.
-  bool blocks_definitely_zstd_compressed = false;
+  CompressionType compression_type = kNoCompression;
 
   // These describe how index is encoded.
   bool index_has_first_key = false;
