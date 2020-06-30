@@ -136,10 +136,16 @@ void DumpSupportInfo(Logger* logger) {
   ROCKS_LOG_HEADER(logger, "Compression algorithms supported:");
   for (auto& compression : OptionsHelper::compression_type_string_map) {
     if (compression.second != kNoCompression &&
+        compression.second != kCustomCompression &&
         compression.second != kDisableCompressionOption) {
       ROCKS_LOG_HEADER(logger, "\t%s supported: %d", compression.first.c_str(),
                        CompressionTypeSupported(compression.second));
     }
+  }
+  for (const auto& compressor :
+       CompressorRegistry::NewInstance()->GetCompressors(false)) {
+    ROCKS_LOG_HEADER(logger, "\t%s supported: %d", compressor->Name(),
+                     compressor->Supported());
   }
   ROCKS_LOG_HEADER(logger, "Fast CRC32 supported: %s",
                    crc32c::IsFastCrc32Supported().c_str());

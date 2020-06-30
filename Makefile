@@ -1421,7 +1421,7 @@ cache_test: $(OBJ_DIR)/cache/cache_test.o $(TEST_LIBRARY) $(LIBRARY)
 coding_test: $(OBJ_DIR)/util/coding_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
-compression_test: $(OBJ_DIR)/util/compression_test.o $(TEST_LIBRARY) $(LIBRARY)
+compression_test: $(OBJ_DIR)/util/compression_test.o util/simple_rle_compressor.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
 
 hash_test: $(OBJ_DIR)/util/hash_test.o $(TEST_LIBRARY) $(LIBRARY)

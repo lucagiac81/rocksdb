@@ -295,7 +295,14 @@ Status BlockFetcher::ReadBlockContents() {
     }
   }
 
+  // If the table was compressed with a custom compressor, override the block
+  // compression type with the table compression type
   compression_type_ = get_block_compression_type(slice_.data(), block_size_);
+  if (compression_type_ == kCustomCompression) {
+    set_block_compression_type(const_cast<char*>(slice_.data()), block_size_,
+                               table_compression_type_);
+    compression_type_ = table_compression_type_;
+  }
 
   if (do_uncompress_ && compression_type_ != kNoCompression) {
     PERF_TIMER_GUARD(block_decompress_time);

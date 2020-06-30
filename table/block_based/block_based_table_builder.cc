@@ -1170,7 +1170,8 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
   io_s = r->file->Append(block_contents);
   if (io_s.ok()) {
     char trailer[kBlockTrailerSize];
-    trailer[0] = type;
+    trailer[0] =
+        CompressorRegistry::NewInstance()->GetCustomCompressorType(type);
     uint32_t checksum = 0;
     switch (r->table_options.checksum) {
       case kNoChecksum:

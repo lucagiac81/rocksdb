@@ -397,7 +397,8 @@ Status UncompressBlockContents(const UncompressionInfo& uncompression_info,
                                const ImmutableCFOptions& ioptions,
                                MemoryAllocator* allocator) {
   assert(data[n] != kNoCompression);
-  assert(data[n] == static_cast<char>(uncompression_info.type()));
+  assert(data[n] == static_cast<char>(uncompression_info.type()) ||
+         data[n] == static_cast<char>(kCustomCompression));
   return UncompressBlockContentsForCompressionType(uncompression_info, data, n,
                                                    contents, format_version,
                                                    ioptions, allocator);

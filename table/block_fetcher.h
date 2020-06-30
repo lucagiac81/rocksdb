@@ -45,7 +45,8 @@ class BlockFetcher {
                const PersistentCacheOptions& cache_options,
                MemoryAllocator* memory_allocator = nullptr,
                MemoryAllocator* memory_allocator_compressed = nullptr,
-               bool for_compaction = false)
+               bool for_compaction = false,
+               CompressionType table_compression_type = kCustomCompression)
       : file_(file),
         prefetch_buffer_(prefetch_buffer),
         footer_(footer),
@@ -62,7 +63,8 @@ class BlockFetcher {
         cache_options_(cache_options),
         memory_allocator_(memory_allocator),
         memory_allocator_compressed_(memory_allocator_compressed),
-        for_compaction_(for_compaction) {}
+        for_compaction_(for_compaction),
+        table_compression_type_(table_compression_type) {}
 
   Status ReadBlockContents();
   CompressionType get_compression_type() const { return compression_type_; }
@@ -110,6 +112,7 @@ class BlockFetcher {
   bool got_from_prefetch_buffer_ = false;
   CompressionType compression_type_;
   bool for_compaction_ = false;
+  CompressionType table_compression_type_;
 
   // return true if found
   bool TryGetUncompressBlockFromPersistentCache();

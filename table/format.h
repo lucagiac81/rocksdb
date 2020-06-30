@@ -225,6 +225,11 @@ inline CompressionType get_block_compression_type(const char* block_data,
   return static_cast<CompressionType>(block_data[block_size]);
 }
 
+inline void set_block_compression_type(char* block_data, size_t block_size,
+                                       CompressionType type) {
+  block_data[block_size] = type;
+}
+
 // Represents the contents of a block read from an SST file. Depending on how
 // it's created, it may or may not own the actual block bytes. As an example,
 // BlockContents objects representing data read from mmapped files only point

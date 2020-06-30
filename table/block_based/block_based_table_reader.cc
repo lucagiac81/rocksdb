@@ -167,10 +167,11 @@ Status ReadBlockFromFile(
   assert(result);
 
   BlockContents contents;
-  BlockFetcher block_fetcher(
-      file, prefetch_buffer, footer, options, handle, &contents, ioptions,
-      do_uncompress, maybe_compressed, block_type, uncompression_dict,
-      cache_options, memory_allocator, nullptr, for_compaction);
+  BlockFetcher block_fetcher(file, prefetch_buffer, footer, options, handle,
+                             &contents, ioptions, do_uncompress,
+                             maybe_compressed, block_type, uncompression_dict,
+                             cache_options, memory_allocator, nullptr,
+                             for_compaction, compression_type);
   Status s = block_fetcher.ReadBlockContents();
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
@@ -1513,7 +1514,8 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
             maybe_compressed, block_type, uncompression_dict,
             rep_->persistent_cache_options,
             GetMemoryAllocator(rep_->table_options),
-            GetMemoryAllocatorForCompressedBlock(rep_->table_options));
+            GetMemoryAllocatorForCompressedBlock(rep_->table_options), false,
+            rep_->compression_type);
         s = block_fetcher.ReadBlockContents();
         raw_block_comp_type = block_fetcher.get_compression_type();
         contents = &raw_block_contents;

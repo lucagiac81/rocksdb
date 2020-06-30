@@ -9,6 +9,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "rocksdb/compressor_registry.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/rocksdb_namespace.h"
 #include "rocksdb/status.h"
@@ -132,6 +133,24 @@ bool ParseEnum(const std::unordered_map<std::string, T>& type_map,
   return false;
 }
 
+// Specialization for CompressionType, as values outside the enum are allowed.
+template <>
+inline bool ParseEnum(
+    const std::unordered_map<std::string, CompressionType>& type_map,
+    const std::string& type, CompressionType* value) {
+  auto iter = type_map.find(type);
+  if (iter != type_map.end()) {
+    *value = iter->second;
+    return true;
+  }
+  *value = static_cast<CompressionType>(
+      CompressorRegistry::NewInstance()->GetCompressorType(type));
+  if (*value != kDisableCompressionOption) {
+    return true;
+  }
+  return false;
+}
+
 // Converts an enum into its string representation.
 // @param type_map Mapping between strings and enum values
 // @param type The enum
@@ -145,6 +164,26 @@ bool SerializeEnum(const std::unordered_map<std::string, T>& type_map,
       *value = pair.first;
       return true;
     }
+  }
+  return false;
+}
+
+// Specialization for CompressionType, as values outside the enum are allowed.
+template <>
+inline bool SerializeEnum(
+    const std::unordered_map<std::string, CompressionType>& type_map,
+    const CompressionType& type, std::string* value) {
+  for (const auto& pair : type_map) {
+    if (pair.second == type) {
+      *value = pair.first;
+      return true;
+    }
+  }
+  std::shared_ptr<Compressor> compressor =
+      CompressorRegistry::NewInstance()->GetCompressor(type);
+  if (compressor != nullptr) {
+    value->append(compressor->Name());
+    return true;
   }
   return false;
 }

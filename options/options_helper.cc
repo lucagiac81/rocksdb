@@ -291,6 +291,7 @@ std::unordered_map<std::string, CompressionType>
         {"kXpressCompression", kXpressCompression},
         {"kZSTD", kZSTD},
         {"kZSTDNotFinalCompression", kZSTDNotFinalCompression},
+        {"kCustomCompression", kCustomCompression},
         {"kDisableCompressionOption", kDisableCompressionOption}};
 
 std::vector<CompressionType> GetSupportedCompressions() {
