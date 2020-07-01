@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+
 #include <atomic>
 #include <cinttypes>
 #include <condition_variable>
@@ -37,6 +38,8 @@
 #include "port/port.h"
 #include "port/stack_trace.h"
 #include "rocksdb/cache.h"
+#include "rocksdb/compressor.h"
+#include "rocksdb/compressor_registry.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/filter_policy.h"
@@ -900,6 +903,14 @@ static enum ROCKSDB_NAMESPACE::CompressionType StringToCompressionType(
     return ROCKSDB_NAMESPACE::kXpressCompression;
   else if (!strcasecmp(ctype, "zstd"))
     return ROCKSDB_NAMESPACE::kZSTD;
+  else {
+    unsigned char type =
+        ROCKSDB_NAMESPACE::CompressorRegistry::NewInstance()->GetCompressorType(
+            std::string(ctype));
+    if (type != ROCKSDB_NAMESPACE::kDisableCompressionOption) {
+      return static_cast<ROCKSDB_NAMESPACE::CompressionType>(type);
+    }
+  }
 
   fprintf(stdout, "Cannot parse compression type '%s'\n", ctype);
   return ROCKSDB_NAMESPACE::kSnappyCompression;  // default value
@@ -7302,13 +7313,7 @@ int db_bench_tool(int argc, char** argv) {
 #endif
   }
 
-  FLAGS_compression_type_e =
-    StringToCompressionType(FLAGS_compression_type.c_str());
-
 #ifndef ROCKSDB_LITE
-  FLAGS_blob_db_compression_type_e =
-    StringToCompressionType(FLAGS_blob_db_compression_type.c_str());
-
   int env_opts =
       !FLAGS_hdfs.empty() + !FLAGS_env_uri.empty() + !FLAGS_fs_uri.empty();
   if (env_opts > 1) {
@@ -7333,6 +7338,16 @@ int db_bench_tool(int argc, char** argv) {
     FLAGS_env = GetCompositeEnv(fs);
   }
 #endif  // ROCKSDB_LITE
+  std::shared_ptr<CompressorRegistry> registry =
+      ROCKSDB_NAMESPACE::CompressorRegistry::NewInstance(FLAGS_env);
+  FLAGS_compression_type_e =
+      StringToCompressionType(FLAGS_compression_type.c_str());
+
+#ifndef ROCKSDB_LITE
+  FLAGS_blob_db_compression_type_e =
+      StringToCompressionType(FLAGS_blob_db_compression_type.c_str());
+#endif  // ROCKSDB_LITE
+
   if (FLAGS_use_existing_keys && !FLAGS_use_existing_db) {
     fprintf(stderr,
             "`-use_existing_db` must be true for `-use_existing_keys` to be "
