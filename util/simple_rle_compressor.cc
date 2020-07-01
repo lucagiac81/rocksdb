@@ -95,3 +95,7 @@ void SimpleRLECompressor::outputSeq(char last, char seq, std::string* output) {
 }
 
 }  // namespace ROCKSDB_NAMESPACE
+
+extern "C" ROCKSDB_NAMESPACE::Compressor* CreateCompressor() {
+  return new ROCKSDB_NAMESPACE::SimpleRLECompressor();
+}

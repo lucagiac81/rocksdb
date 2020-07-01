@@ -9,6 +9,8 @@
 //
 #include "rocksdb/compressor_registry.h"
 
+#include <regex>
+
 #include "rocksdb/file_system.h"
 #include "util/compression.h"
 
@@ -18,11 +20,16 @@ namespace ROCKSDB_NAMESPACE {
 const unsigned char CompressorRegistry::maxCompressorType;
 std::shared_ptr<CompressorRegistry> CompressorRegistry::instance = nullptr;
 
-CompressorRegistry::CompressorRegistry() { InitializeBuiltInCompressors(); }
+CompressorRegistry::CompressorRegistry(Env* env, const std::string& lib_path,
+                                       const std::string& lib_filter)
+    : env_(env), lib_path_(lib_path), lib_filter_(lib_filter) {
+  InitializeCompressors();
+}
 
-std::shared_ptr<CompressorRegistry> CompressorRegistry::NewInstance() {
+std::shared_ptr<CompressorRegistry> CompressorRegistry::NewInstance(
+    Env* env, std::string lib_path, const std::string& lib_filter) {
   if (instance == nullptr) {
-    instance = std::make_shared<CompressorRegistry>();
+    instance = std::make_shared<CompressorRegistry>(env, lib_path, lib_filter);
   }
   return instance;
 }
@@ -30,6 +37,13 @@ std::shared_ptr<CompressorRegistry> CompressorRegistry::NewInstance() {
 void CompressorRegistry::ReleaseInstance() {
   if (instance != nullptr) {
     instance.reset();
+  }
+}
+
+void CompressorRegistry::InitializeCompressors() {
+  InitializeBuiltInCompressors();
+  if (!lib_path_.empty()) {
+    LoadAndAddCompressors(lib_path_, lib_filter_);
   }
 }
 
@@ -180,6 +194,89 @@ unsigned char CompressorRegistry::AddCompressor(
   } else {
     return kDisableCompressionOption;
   }
+}
+
+std::shared_ptr<Compressor> CompressorRegistry::LoadCompressor(
+    const std::string& lib_name, const std::string& lib_path) {
+#ifndef ROCKSDB_NO_DYNAMIC_EXTENSION
+  std::shared_ptr<DynamicLibrary> lib;
+  Status s = env_->LoadLibrary(lib_name, lib_path, &lib);
+  if (!s.ok()) {
+    return nullptr;
+  }
+
+  std::function<Compressor*()> factory_func;
+  s = lib->LoadFunction("CreateCompressor", &factory_func);
+  if (!s.ok()) {
+    return nullptr;
+  }
+
+  std::shared_ptr<Compressor> compressor(factory_func());
+  dynamic_libraries.push_back(
+      lib);  // keep reference to library. If DynamicLibrary object is
+             // destroyed, library is unloaded.
+  return compressor;
+#else
+  return nullptr;
+#endif
+}
+
+std::vector<std::shared_ptr<Compressor>> CompressorRegistry::LoadCompressors(
+    const std::string& lib_path, const std::string& lib_filter) {
+  std::vector<std::shared_ptr<Compressor>> loaded_compressors;
+  std::vector<std::string> files;
+  std::regex filter_regex(lib_filter);
+
+  Status s = env_->GetChildren(lib_path, &files);
+  if (s.ok()) {
+    for (const auto& fname : files) {
+      if (std::regex_match(fname, filter_regex)) {
+        std::shared_ptr<Compressor> compressor =
+            LoadCompressor(fname, lib_path);
+        if (compressor != nullptr) {
+          loaded_compressors.push_back(compressor);
+        }
+      }
+    }
+  }
+  return loaded_compressors;
+}
+
+unsigned char CompressorRegistry::LoadAndAddCompressor(
+    const std::string& lib_name, const std::string& lib_path) {
+  std::shared_ptr<Compressor> loaded_compressor =
+      LoadCompressor(lib_name, lib_path);
+  if (loaded_compressor != nullptr) {
+    return AddCompressor(loaded_compressor);
+  }
+  return kDisableCompressionOption;
+}
+
+std::vector<unsigned char> CompressorRegistry::LoadAndAddCompressors(
+    const std::string& lib_path, const std::string& lib_filter) {
+  std::vector<unsigned char> ids;
+  std::vector<std::shared_ptr<Compressor>> loaded_compressors =
+      LoadCompressors(lib_path, lib_filter);
+  for (auto loaded_compressor : loaded_compressors) {
+    unsigned char type = AddCompressor(loaded_compressor);
+    if (type != kDisableCompressionOption) {
+      ids.push_back(type);
+    }
+  }
+  return ids;
+}
+
+bool CompressorRegistry::LoadCompressorSupported() {
+#ifndef ROCKSDB_NO_DYNAMIC_EXTENSION
+  std::shared_ptr<DynamicLibrary> lib;
+  Status s = env_->LoadLibrary("", ".", &lib);
+  if (s.IsNotSupported()) {
+    return false;
+  }
+  return true;
+#else
+  return false;
+#endif
 }
 
 }  // namespace ROCKSDB_NAMESPACE

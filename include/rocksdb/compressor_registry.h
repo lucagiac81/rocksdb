@@ -25,10 +25,19 @@ namespace ROCKSDB_NAMESPACE {
 class CompressorRegistry {
  public:
   // Constructor used in NewInstance.
-  CompressorRegistry();
+  CompressorRegistry(Env* env, const std::string& lib_path,
+                     const std::string& lib_filter);
 
   // Get an instance of CompressorRegistry (singleton).
-  static std::shared_ptr<CompressorRegistry> NewInstance();
+  // @param env Environment for dynamic loading.
+  // @param lib_path Path to directory containing compressors in shared
+  // libraries. Those compressors are loaded upon instantiation of
+  // CompressorRegistry.
+  // @param lib_filter Regex to filter file names in the lib_path directory.
+  // Only file whose names match the regex are considered for loading.
+  static std::shared_ptr<CompressorRegistry> NewInstance(
+      Env* env = Env::Default(), std::string lib_path = "./compressors",
+      const std::string& lib_filter = ".*");
 
   static void ReleaseInstance();
 
@@ -78,17 +87,64 @@ class CompressorRegistry {
   unsigned char AddCompressor(std::shared_ptr<Compressor> compressor,
                               unsigned char type);
 
+  // Load a compressor from a shared library.
+  // @param lib_name Library path
+  // @param lib_path Library path
+  std::shared_ptr<Compressor> LoadCompressor(const std::string& lib_name,
+                                             const std::string& lib_path);
+
+  // Load compressors from shared libraries in a directory.
+  // @param lib_path Directory path.
+  // @param lib_filter Regex to filter file names in the directory. Only file
+  // whose names match the regex are considered for loading.
+  std::vector<std::shared_ptr<Compressor>> LoadCompressors(
+      const std::string& lib_path, const std::string& lib_filter = ".*");
+
+  // Load compressor from a shared library and add it to the registry.
+  // @see CompressorRegistry::LoadCompressor for more details.
+  unsigned char LoadAndAddCompressor(const std::string& lib_name,
+                                     const std::string& lib_path);
+
+  // Load compressors from shared libraries in a directory and add them to the
+  // registry.
+  // @see CompressorRegistry::LoadCompressors for more details.
+  std::vector<unsigned char> LoadAndAddCompressors(
+      const std::string& lib_path, const std::string& lib_filter = ".*");
+
+  // Returns whether the environment supports dynamic loading.
+  bool LoadCompressorSupported();
+
   // Max type that a compressor can have.
   static const unsigned char maxCompressorType = 0xfe;
   // First type that can be assigned to custom compressor.
   static const unsigned char firstCustomType = 0x41;
 
  private:
-  // Initialize built-in compressors and add them to the registry.
+  // Initialize built-in and custom compressors (from lib_path_ directory) and
+  // add them to the registry.
+  void InitializeCompressors();
+
+  // Part of InitializeCompressors to initialize built-in compressors and add
+  // them to the registry.
   void InitializeBuiltInCompressors();
 
   // Singleton instance of CompressorRegistry.
   static std::shared_ptr<CompressorRegistry> instance;
+
+  // Environment for dynamic loading.
+  // @see CompressorRegistry::NewInstance for more details.
+  Env* env_;
+
+  // Path to directory containing compressors in shared libraries.
+  // @see CompressorRegistry::NewInstance for more details.
+  std::string lib_path_;
+
+  // Regex to filter file names in the lib_path directory.
+  // @see CompressorRegistry::NewInstance for more details.
+  std::string lib_filter_;
+
+  // Dynamic_libraries must be destroyed after compressors.
+  std::vector<std::shared_ptr<DynamicLibrary>> dynamic_libraries;
 
   // Array of compressor instances, indexing by their numeric types.
   std::shared_ptr<Compressor> compressors[maxCompressorType + 1] = {nullptr};

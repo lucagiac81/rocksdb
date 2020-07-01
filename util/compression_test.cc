@@ -96,6 +96,21 @@ TEST(Compression, InitializeBuiltInCompressors) {
   CompressorRegistry::ReleaseInstance();
 }
 
+TEST(Compression, InitializeCompressors) {
+  auto registry = CompressorRegistry::NewInstance(
+      Env::Default(), ".", ".*rocksdb_simple_rle_compressor.*");
+  if (!registry->LoadCompressorSupported()) {
+    return;
+  }
+  ASSERT_NE(registry->GetCompressor(SimpleRLECompressor().Name()), nullptr);
+  ASSERT_EQ(registry->GetCompressors().size(), 9);  // all compressors
+  ASSERT_EQ(registry->GetCompressors(true, false).size(),
+            8);  // built-in compressors
+  ASSERT_EQ(registry->GetCompressors(false, true).size(),
+            1);  // custom compressors
+  CompressorRegistry::ReleaseInstance();
+}
+
 TEST(Compression, AddCompressor) {
   auto registry = CompressorRegistry::NewInstance();
   std::shared_ptr<SimpleRLECompressor> compressor =
@@ -152,6 +167,52 @@ TEST(Compression, AddCompressorWithSpecificType) {
   CompressorRegistry::ReleaseInstance();
 }
 
+TEST(Compression, LoadCompressor) {
+  auto registry = CompressorRegistry::NewInstance();
+  if (!registry->LoadCompressorSupported()) {
+    return;
+  }
+  std::shared_ptr<Compressor> compressor =
+      registry->LoadCompressor("rocksdb_simple_rle_compressor", ".");
+  ASSERT_NE(compressor, nullptr);
+  ASSERT_STREQ(compressor->Name(), SimpleRLECompressor().Name());
+
+  std::shared_ptr<Compressor> missing_compressor =
+      registry->LoadCompressor("rocksdb_missing_compressor", ".");
+  ASSERT_EQ(missing_compressor, nullptr);
+  CompressorRegistry::ReleaseInstance();
+}
+
+TEST(Compression, LoadCompressors) {
+  auto registry = CompressorRegistry::NewInstance();
+  if (!registry->LoadCompressorSupported()) {
+    return;
+  }
+  std::vector<std::shared_ptr<Compressor>> compressors =
+      registry->LoadCompressors(".", ".*rocksdb_simple_rle_compressor.*");
+  ASSERT_EQ(compressors.size(), 1);
+  std::shared_ptr<Compressor> compressor = compressors[0];
+  ASSERT_NE(compressor, nullptr);
+  ASSERT_STREQ(compressor->Name(), SimpleRLECompressor().Name());
+  CompressorRegistry::ReleaseInstance();
+}
+
+TEST(Compression, LoadAndAddCompressors) {
+  auto registry = CompressorRegistry::NewInstance();
+  if (!registry->LoadCompressorSupported()) {
+    return;
+  }
+  std::vector<unsigned char> types =
+      registry->LoadAndAddCompressors(".", ".*rocksdb_simple_rle_compressor.*");
+  ASSERT_EQ(types.size(), 1);
+  unsigned char expected_type = CompressorRegistry::firstCustomType;
+  ASSERT_EQ(types[0], expected_type);
+  ASSERT_NE(registry->GetCompressor(types[0]), nullptr);
+  ASSERT_STREQ(registry->GetCompressor(types[0])->Name(),
+               SimpleRLECompressor().Name());
+  CompressorRegistry::ReleaseInstance();
+}
+
 #ifndef ROCKSDB_LITE
 TEST(Compression, ColumnFamilyOptionsFromString) {
   ColumnFamilyOptions options, new_options;
@@ -165,7 +226,6 @@ TEST(Compression, ColumnFamilyOptionsFromString) {
   ASSERT_EQ(s.ToString(), "Invalid argument: Error parsing:: compression");
   CompressorRegistry::ReleaseInstance();
 
-  // Custom compressor added manually
   auto registry = CompressorRegistry::NewInstance();
   std::shared_ptr<SimpleRLECompressor> compressor =
       std::make_shared<SimpleRLECompressor>();

@@ -1036,6 +1036,7 @@ if(WITH_TESTS OR WITH_BENCHMARK_TOOLS)
   test_util/mock_time_env.cc
   test_util/testharness.cc)
   target_link_libraries(testharness gtest)
+  add_library(rocksdb_simple_rle_compressor${ARTIFACT_SUFFIX} SHARED util/simple_rle_compressor.cc)
 endif()
 
 if(WITH_TESTS)

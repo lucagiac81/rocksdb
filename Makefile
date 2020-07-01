@@ -560,6 +560,9 @@ PARALLEL_TEST = \
 	point_lock_manager_test \
 	write_prepared_transaction_test \
 	write_unprepared_transaction_test \
+	
+TEST_LIBRARIES = \
+	librocksdb_simple_rle_compressor.$(PLATFORM_SHARED_EXT)
 
 ifeq ($(USE_FOLLY_DISTRIBUTED_MUTEX),1)
 	TESTS += folly_synchronization_distributed_mutex_test
@@ -837,7 +840,7 @@ endif  # PLATFORM_SHARED_EXT
 	blackbox_crash_test_with_best_efforts_recovery
 
 
-all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
+all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS) $(TEST_LIBRARIES)
 
 all_but_some_tests: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(ROCKSDBTESTS_SUBSET)
 
@@ -855,7 +858,7 @@ test_libs: $(TEST_LIBS)
 
 benchmarks: $(BENCHMARKS)
 
-dbg: $(LIBRARY) $(BENCHMARKS) tools $(TESTS)
+dbg: $(LIBRARY) $(BENCHMARKS) tools $(TESTS) $(TEST_LIBRARIES)
 
 # creates library and programs
 release: clean
@@ -1057,7 +1060,7 @@ ifndef SKIP_FORMAT_BUCK_CHECKS
 endif
 
 # TODO add ldb_tests
-check_some: $(ROCKSDBTESTS_SUBSET)
+check_some: $(ROCKSDBTESTS_SUBSET) $(TEST_LIBRARIES)
 	for t in $(ROCKSDBTESTS_SUBSET); do echo "===== Running $$t (`date`)"; ./$$t || exit 1; done
 
 .PHONY: ldb_tests
@@ -1276,7 +1279,7 @@ clean-not-downloaded: clean-ext-libraries-bin clean-rocks clean-not-downloaded-r
 clean-rocks:
 	echo shared=$(ALL_SHARED_LIBS)
 	echo static=$(ALL_STATIC_LIBS)
-	rm -f $(BENCHMARKS) $(TOOLS) $(TESTS) $(PARALLEL_TEST) $(ALL_STATIC_LIBS) $(ALL_SHARED_LIBS)
+	rm -f $(BENCHMARKS) $(TOOLS) $(TESTS) $(PARALLEL_TEST) $(TEST_LIBRARIES) $(ALL_STATIC_LIBS) $(ALL_SHARED_LIBS)
 	rm -rf $(CLEAN_FILES) ios-x86 ios-arm scan_build_report
 	$(FIND) . -name "*.[oda]" -exec rm -f {} \;
 	$(FIND) . -type f -regex ".*\.\(\(gcda\)\|\(gcno\)\)" -exec rm -f {} \;
@@ -1423,6 +1426,10 @@ coding_test: $(OBJ_DIR)/util/coding_test.o $(TEST_LIBRARY) $(LIBRARY)
 
 compression_test: $(OBJ_DIR)/util/compression_test.o util/simple_rle_compressor.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
+
+librocksdb_simple_rle_compressor.$(PLATFORM_SHARED_EXT) util/simple_rle_compressor.o &: util/simple_rle_compressor.cc
+	$(AM_V_CC)$(CXX) $(CXXFLAGS) -fPIC -c $< -o util/simple_rle_compressor.o
+	$(AM_V_CCLD)$(CXX) $(PLATFORM_SHARED_LDFLAGS)librocksdb_simple_rle_compressor.$(PLATFORM_SHARED_EXT) $(CXXFLAGS) $(PLATFORM_SHARED_CFLAGS) $< -o librocksdb_simple_rle_compressor.$(PLATFORM_SHARED_EXT)
 
 hash_test: $(OBJ_DIR)/util/hash_test.o $(TEST_LIBRARY) $(LIBRARY)
 	$(AM_LINK)
