@@ -119,6 +119,27 @@ static Status ParseCompressionOptions(const std::string& value,
     }
   }
 
+  // custom options is optional for backwards compatibility
+  // If custom options are specified, parallel_threads must be specified too
+  if (end != std::string::npos) {
+    start = end + 1;
+    if (start >= value.size()) {
+      return Status::InvalidArgument(
+          "unable to parse the specified CF option " + name);
+    }
+    // Similar to parallel_threads, check if this is the final token
+    // If this is the last token, then it is the enabled bit
+    // Otherwise, it is custom options
+    end = value.find(':', start);
+    if (end != std::string::npos) {
+      compression_opts.custom_options =
+          UnescapeOptionString(value.substr(start, end - start));
+    } else {
+      compression_opts.enabled =
+          ParseBoolean("", value.substr(start, value.size() - start));
+    }
+  }
+
   // enabled is optional for backwards compatibility
   if (end != std::string::npos) {
     start = end + 1;
@@ -157,6 +178,10 @@ static std::unordered_map<std::string, OptionTypeInfo>
         {"parallel_threads",
          {offsetof(struct CompressionOptions, parallel_threads),
           OptionType::kUInt32T, OptionVerificationType::kNormal,
+          OptionTypeFlags::kMutable}},
+        {"custom_options",
+         {offsetof(struct CompressionOptions, custom_options),
+          OptionType::kString, OptionVerificationType::kNormal,
           OptionTypeFlags::kMutable}},
         {"enabled",
          {offsetof(struct CompressionOptions, enabled), OptionType::kBoolean,

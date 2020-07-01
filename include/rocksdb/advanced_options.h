@@ -132,6 +132,9 @@ struct CompressionOptions {
   // Default: 1.
   uint32_t parallel_threads;
 
+  // Options for custom compressors
+  std::string custom_options;
+
   // When the compression options are set by the user, it will be set to "true".
   // For bottommost_compression_opts, to enable it, user must set enabled=true.
   // Otherwise, bottommost compression will use compression_opts as default
@@ -150,16 +153,18 @@ struct CompressionOptions {
         max_dict_bytes(0),
         zstd_max_train_bytes(0),
         parallel_threads(1),
+        custom_options(),
         enabled(false) {}
   CompressionOptions(int wbits, int _lev, int _strategy, int _max_dict_bytes,
                      int _zstd_max_train_bytes, int _parallel_threads,
-                     bool _enabled)
+                     std::string _custom_options, bool _enabled)
       : window_bits(wbits),
         level(_lev),
         strategy(_strategy),
         max_dict_bytes(_max_dict_bytes),
         zstd_max_train_bytes(_zstd_max_train_bytes),
         parallel_threads(_parallel_threads),
+        custom_options(_custom_options),
         enabled(_enabled) {}
 };
 

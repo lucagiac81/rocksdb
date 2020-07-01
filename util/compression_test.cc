@@ -238,7 +238,43 @@ TEST(Compression, ColumnFamilyOptionsFromString) {
   ASSERT_EQ(new_options.compression, expected_type);
   CompressorRegistry::ReleaseInstance();
 }
+
+TEST(Compression, CustomCompressionOptionsFromStringColonSeparated) {
+  ColumnFamilyOptions options, new_options;
+  ConfigOptions config_options;
+  Status s = GetColumnFamilyOptionsFromString(
+      config_options, options, "compression_opts=4:5:6:0:0:1:my_options:1",
+      &new_options);
+  ASSERT_OK(s);
+  ASSERT_STREQ(new_options.compression_opts.custom_options.c_str(),
+               "my_options");
+  CompressorRegistry::ReleaseInstance();
+}
+
+TEST(Compression, CustomCompressionOptionsFromStringStruct) {
+  ColumnFamilyOptions options, new_options;
+  ConfigOptions config_options;
+  Status s = GetColumnFamilyOptionsFromString(
+      config_options, options, "compression_opts={custom_options=my_options}",
+      &new_options);
+  ASSERT_OK(s);
+  ASSERT_STREQ(new_options.compression_opts.custom_options.c_str(),
+               "my_options");
+  CompressorRegistry::ReleaseInstance();
+}
 #endif
+
+TEST(Compression, CustomCompressionOptionsToString) {
+  CompressionOptions options;
+  options.custom_options = "my_options";
+  std::string options_str = CompressionOptionsToString(options);
+  // Order of custom options is not guaranteed
+  ASSERT_STREQ(options_str.c_str(),
+               "window_bits=-14; level=32767; strategy=0; "
+               "max_dict_bytes=0; zstd_max_train_bytes=0; "
+               "custom_options=my_options; enabled=0; ");
+  CompressorRegistry::ReleaseInstance();
+}
 
 TEST(Compression, SimpleRLECompressorDB) {
   // Create database

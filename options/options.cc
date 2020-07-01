@@ -199,6 +199,9 @@ void ColumnFamilyOptions::Dump(Logger* log) const {
         "%" PRIu32,
         bottommost_compression_opts.parallel_threads);
     ROCKS_LOG_HEADER(
+        log, "          Options.bottommost_compression_opts.custom_options: %s",
+        bottommost_compression_opts.custom_options.c_str());
+    ROCKS_LOG_HEADER(
         log, "                 Options.bottommost_compression_opts.enabled: %s",
         bottommost_compression_opts.enabled ? "true" : "false");
     ROCKS_LOG_HEADER(log, "           Options.compression_opts.window_bits: %d",
@@ -219,6 +222,9 @@ void ColumnFamilyOptions::Dump(Logger* log) const {
                      "        Options.compression_opts.parallel_threads: "
                      "%" PRIu32,
                      compression_opts.parallel_threads);
+    ROCKS_LOG_HEADER(log,
+                     "          Options.compression_opts.custom_options: %s",
+                     compression_opts.custom_options.c_str());
     ROCKS_LOG_HEADER(log,
                      "                 Options.compression_opts.enabled: %s",
                      compression_opts.enabled ? "true" : "false");

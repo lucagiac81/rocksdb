@@ -388,6 +388,12 @@ TEST_F(OptionsSettableTest, ColumnFamilyOptionsAllFieldsSettable) {
        sizeof(const CompactionFilter*)},
       {offset_of(&ColumnFamilyOptions::compaction_filter_factory),
        sizeof(std::shared_ptr<CompactionFilterFactory>)},
+      {offset_of(&ColumnFamilyOptions::bottommost_compression_opts) +
+           offset_of(&CompressionOptions::custom_options),
+       sizeof(std::string)},
+      {offset_of(&ColumnFamilyOptions::compression_opts) +
+           offset_of(&CompressionOptions::custom_options),
+       sizeof(std::string)},
       {offset_of(&ColumnFamilyOptions::prefix_extractor),
        sizeof(std::shared_ptr<const SliceTransform>)},
       {offset_of(&ColumnFamilyOptions::snap_refresh_nanos), sizeof(uint64_t)},
@@ -530,6 +536,12 @@ TEST_F(OptionsSettableTest, ColumnFamilyOptionsAllFieldsSettable) {
        sizeof(std::shared_ptr<const SliceTransform>)},
       {offset_of(&MutableCFOptions::max_bytes_for_level_multiplier_additional),
        sizeof(std::vector<int>)},
+      {offset_of(&MutableCFOptions::compression_opts) +
+           offset_of(&CompressionOptions::custom_options),
+       sizeof(std::string)},
+      {offset_of(&MutableCFOptions::bottommost_compression_opts) +
+           offset_of(&CompressionOptions::custom_options),
+       sizeof(std::string)},
       {offset_of(&MutableCFOptions::max_file_size),
        sizeof(std::vector<uint64_t>)},
   };
