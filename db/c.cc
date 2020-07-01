@@ -12,10 +12,16 @@
 #include "rocksdb/c.h"
 
 #include <stdlib.h>
+
+#include <map>
+#include <unordered_set>
+#include <vector>
+
 #include "port/port.h"
 #include "rocksdb/cache.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/comparator.h"
+#include "rocksdb/compressor_registry.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
@@ -24,6 +30,7 @@
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/options.h"
+#include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/statistics.h"
@@ -39,12 +46,7 @@
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "rocksdb/write_batch.h"
-#include "rocksdb/perf_context.h"
 #include "utilities/merge_operators.h"
-
-#include <vector>
-#include <unordered_set>
-#include <map>
 
 using ROCKSDB_NAMESPACE::BackupableDBOptions;
 using ROCKSDB_NAMESPACE::BackupEngine;
@@ -65,6 +67,8 @@ using ROCKSDB_NAMESPACE::CompactionOptionsFIFO;
 using ROCKSDB_NAMESPACE::CompactRangeOptions;
 using ROCKSDB_NAMESPACE::Comparator;
 using ROCKSDB_NAMESPACE::CompressionType;
+using ROCKSDB_NAMESPACE::Compressor;
+using ROCKSDB_NAMESPACE::CompressorRegistry;
 using ROCKSDB_NAMESPACE::CuckooTableOptions;
 using ROCKSDB_NAMESPACE::DB;
 using ROCKSDB_NAMESPACE::DBOptions;
@@ -5265,6 +5269,54 @@ void rocksdb_options_set_memtable_whole_key_filtering(rocksdb_options_t* opt,
 // deletes container with memory usage estimates
 void rocksdb_approximate_memory_usage_destroy(rocksdb_memory_usage_t* usage) {
   delete usage;
+}
+
+unsigned char rocksdb_compression_get_compressor_type(const char* name) {
+  return CompressorRegistry::NewInstance()->GetCompressorType(name);
+}
+
+unsigned char rocksdb_compression_set_compressor_type(const char* name,
+                                                      unsigned char type) {
+  auto registry = CompressorRegistry::NewInstance();
+  std::shared_ptr<Compressor> compressor = registry->GetCompressor(name);
+  if (compressor != nullptr) {
+    return registry->AddCompressor(compressor, type);
+  }
+  return CompressionType::kDisableCompressionOption;
+}
+
+char* rocksdb_compression_get_compressor_name(unsigned char type) {
+  auto compressor = CompressorRegistry::NewInstance()->GetCompressor(type);
+  if (compressor != nullptr) {
+    return strdup(compressor->Name());
+  }
+  return nullptr;
+}
+
+unsigned char rocksdb_compression_get_compressor_types(unsigned char** types) {
+  auto get_types = CompressorRegistry::NewInstance()->GetCompressorTypes();
+  *types = reinterpret_cast<unsigned char*>(malloc(get_types.size()));
+  std::copy(get_types.begin(), get_types.end(), *types);
+  return static_cast<unsigned char>(get_types.size());
+}
+
+unsigned char rocksdb_compression_load_compressor_supported() {
+  return CompressorRegistry::NewInstance()->LoadCompressorSupported() ? 1 : 0;
+}
+
+unsigned char rocksdb_compression_load_and_add_compressor(const char* lib_name,
+                                                          const char* path) {
+  return CompressorRegistry::NewInstance()->LoadAndAddCompressor(lib_name,
+                                                                 path);
+}
+
+unsigned char rocksdb_compression_load_and_add_compressors(
+    const char* path, const char* filter, unsigned char** types) {
+  auto loaded_types =
+      CompressorRegistry::NewInstance()->LoadAndAddCompressors(path, filter);
+  *types = reinterpret_cast<unsigned char*>(malloc(loaded_types.size()));
+  std::copy(loaded_types.begin(), loaded_types.end(), *types);
+  return static_cast<unsigned char>(loaded_types.size());
 }
 
 void rocksdb_cancel_all_background_work(rocksdb_t* db, unsigned char wait) {

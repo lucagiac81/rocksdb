@@ -2209,6 +2209,37 @@ extern ROCKSDB_LIBRARY_API void rocksdb_options_set_dump_malloc_stats(
 extern ROCKSDB_LIBRARY_API void
 rocksdb_options_set_memtable_whole_key_filtering(rocksdb_options_t*,
                                                  unsigned char);
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_get_compressor_type(const char* name);
+
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_set_compressor_type(const char* name, unsigned char type);
+
+// Returns the name of the compressor, or nullptr if there is no compressor of
+// that type.
+extern ROCKSDB_LIBRARY_API char* rocksdb_compression_get_compressor_name(
+    unsigned char type);
+
+// Returns the number of compressors available.
+// Caller must free memory allocated for types.
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_get_compressor_types(unsigned char** types);
+
+// Returns 1 if dynamic library loading is supported, 0 if not supported
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_load_compressor_supported();
+
+// Returns type of the added compressor.
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_load_and_add_compressor(const char* lib_name,
+                                            const char* path);
+
+// Returns the number of compressors added.
+// Caller must free memory allocated for types.
+extern ROCKSDB_LIBRARY_API unsigned char
+rocksdb_compression_load_and_add_compressors(const char* path,
+                                             const char* filter,
+                                             unsigned char** types);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_cancel_all_background_work(
     rocksdb_t* db, unsigned char wait);

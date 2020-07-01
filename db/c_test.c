@@ -2852,6 +2852,51 @@ int main(int argc, char** argv) {
     CheckNoError(err);
   }
 
+  StartPhase("compression");
+  {
+    unsigned char type = rocksdb_compression_get_compressor_type("Snappy");
+    CheckCondition(type == rocksdb_snappy_compression);
+    char* name =
+        rocksdb_compression_get_compressor_name(rocksdb_snappy_compression);
+    CheckEqual("Snappy", name, 6);
+    free(name);
+
+    unsigned char* types;
+    unsigned char num_compressors =
+        rocksdb_compression_get_compressor_types(&types);
+    CheckCondition(num_compressors == 8);
+    CheckCondition(types[0] == rocksdb_snappy_compression);
+    CheckCondition(types[1] == rocksdb_zlib_compression);
+    CheckCondition(types[2] == rocksdb_bz2_compression);
+    CheckCondition(types[3] == rocksdb_lz4_compression);
+    CheckCondition(types[4] == rocksdb_lz4hc_compression);
+    CheckCondition(types[5] == rocksdb_xpress_compression);
+    CheckCondition(types[6] == rocksdb_zstd_compression);
+    free(types);
+
+    if (rocksdb_compression_load_compressor_supported()) {
+      type = rocksdb_compression_load_and_add_compressor(
+          "rocksdb_simple_rle_compressor", ".");
+      CheckCondition(type == 0x41);
+      type = rocksdb_compression_load_and_add_compressor(
+          "rocksdb_missing_compressor", ".");
+      CheckCondition(type == 0xff);
+
+      num_compressors = rocksdb_compression_load_and_add_compressors(
+          ".", ".*rocksdb_simple_rle_compressor.*", &types);
+      CheckCondition(num_compressors == 1);
+      CheckCondition(types[0] == 0x41);
+      free(types);
+    }
+
+    type = rocksdb_compression_set_compressor_type("Snappy", 0x42);
+    CheckCondition(type == 0x42);
+    type = rocksdb_compression_get_compressor_type("Snappy");
+    CheckCondition(type == 0x42);
+    type = rocksdb_compression_set_compressor_type("MissingCompressor", 0x42);
+    CheckCondition(type == 0xff);
+  }
+
   StartPhase("cancel_all_background_work");
   rocksdb_cancel_all_background_work(db, 1);
 
