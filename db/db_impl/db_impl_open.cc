@@ -199,10 +199,17 @@ DBOptions SanitizeOptions(const std::string& dbname, const DBOptions& src,
 #endif  // !ROCKSDB_LITE
 
   // Supported wal compression types
-  if (!StreamingCompressionTypeSupported(result.wal_compression)) {
+  CompressionType wal_compression = result.wal_compression;
+  if (result.wal_compressor != nullptr) {
+    wal_compression = result.wal_compressor->GetCompressionType();
+  }
+  if (!StreamingCompressionTypeSupported(wal_compression)) {
+    result.wal_compressor = BuiltinCompressor::GetCompressor(kNoCompression);
     result.wal_compression = kNoCompression;
     ROCKS_LOG_WARN(result.info_log,
                    "wal_compression is disabled since only zstd is supported");
+  } else if (result.wal_compressor == nullptr) {
+    result.wal_compressor = BuiltinCompressor::GetCompressor(wal_compression);
   }
 
   if (!result.paranoid_checks) {
