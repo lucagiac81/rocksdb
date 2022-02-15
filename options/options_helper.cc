@@ -168,6 +168,7 @@ DBOptions BuildDBOptions(const ImmutableDBOptions& immutable_db_options,
   options.two_write_queues = immutable_db_options.two_write_queues;
   options.manual_wal_flush = immutable_db_options.manual_wal_flush;
   options.wal_compression = immutable_db_options.wal_compression;
+  options.wal_compressor = immutable_db_options.wal_compressor;
   options.atomic_flush = immutable_db_options.atomic_flush;
   options.avoid_unnecessary_blocking_io =
       immutable_db_options.avoid_unnecessary_blocking_io;
@@ -252,6 +253,7 @@ void UpdateColumnFamilyOptions(const MutableCFOptions& moptions,
   cf_opts->min_blob_size = moptions.min_blob_size;
   cf_opts->blob_file_size = moptions.blob_file_size;
   cf_opts->blob_compression_type = moptions.blob_compression_type;
+  cf_opts->blob_compressor = moptions.blob_compressor;
   cf_opts->enable_blob_garbage_collection =
       moptions.enable_blob_garbage_collection;
   cf_opts->blob_garbage_collection_age_cutoff =
@@ -271,11 +273,14 @@ void UpdateColumnFamilyOptions(const MutableCFOptions& moptions,
   cf_opts->paranoid_file_checks = moptions.paranoid_file_checks;
   cf_opts->report_bg_io_stats = moptions.report_bg_io_stats;
   cf_opts->compression = moptions.compression;
+  cf_opts->compressor = moptions.compressor;
   cf_opts->compression_opts = moptions.compression_opts;
   cf_opts->bottommost_compression = moptions.bottommost_compression;
+  cf_opts->bottommost_compressor = moptions.bottommost_compressor;
   cf_opts->bottommost_compression_opts = moptions.bottommost_compression_opts;
   cf_opts->sample_for_compression = moptions.sample_for_compression;
   cf_opts->compression_per_level = moptions.compression_per_level;
+  cf_opts->compressor_per_level = moptions.compressor_per_level;
   cf_opts->last_level_temperature = moptions.last_level_temperature;
   cf_opts->bottommost_temperature = moptions.last_level_temperature;
 }

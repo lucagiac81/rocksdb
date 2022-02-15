@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "rocksdb/options.h"
-#include "util/compressor.h"
 
 namespace ROCKSDB_NAMESPACE {
 class SystemClock;
