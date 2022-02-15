@@ -214,6 +214,20 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
   // Dynamically changeable through SetOptions() API
   CompressionType compression;
 
+  // Similar to compression, but the algorithm is encapsulated in a Compressor
+  // class. This adds the ability to select plugin compressors, beyond the
+  // built-in ones provided through CompressionType.
+  //
+  // If compressor is specified (not null), it overrides
+  // compression/compression_opts (the compressor includes values for its
+  // options).
+  //
+  // If compressor is not specified (null), compression/compression_opts are
+  // applied as described for those options.
+  //
+  // Default: nullptr
+  std::shared_ptr<Compressor> compressor = nullptr;
+
   // Compression algorithm that will be used for the bottommost level that
   // contain files. The behavior for num_levels = 1 is not well defined.
   // Right now, with num_levels = 1,  all compaction outputs will use
@@ -222,6 +236,22 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
   //
   // Default: kDisableCompressionOption (Disabled)
   CompressionType bottommost_compression = kDisableCompressionOption;
+
+  // Similar to bottommost_compression, but the algorithm is encapsulated in a
+  // Compressor object. This adds the ability to select custom compressors,
+  // beyond the built-in ones provided through CompressionType.
+  //
+  // If bottommost_compressor is specified (not null), it overrides
+  // bottommost_compression/compression_opts/bottommost_compression_opts (the
+  // compressor includes values for its options).
+  //
+  // If bottommost_compressor is not specified (null),
+  // bottommost_compression/compression_opts/bottommost_compression_opts are
+  // applied as described for those options.
+  //
+  // Default: nullptr (equivalent to bottommost_compression =
+  // kDisableCompressionOption)
+  std::shared_ptr<Compressor> bottommost_compressor = nullptr;
 
   // different options for compression algorithms used by bottommost_compression
   // if it is enabled. To enable it, please see the definition of
@@ -1232,6 +1262,19 @@ struct DBOptions {
   // versions regardless of the wal_compression settings.
   CompressionType wal_compression = kNoCompression;
 
+  // Similar to wal_compression, but the algorithm is encapsulated in a
+  // Compressor class. This adds the ability to select plugin compressors,
+  // beyond the built-in ones provided through CompressionType.
+  //
+  // If wal_compressor is specified (not null), it overrides
+  // wal_compression.
+  //
+  // If wal_compressor is not specified (null), wal_compression is
+  // applied.
+  //
+  // Default: nullptr
+  std::shared_ptr<Compressor> wal_compressor = nullptr;
+
   // If true, RocksDB supports flushing multiple column families and committing
   // their results atomically to MANIFEST. Note that it is not
   // necessary to set atomic_flush to true if WAL is always enabled since WAL
@@ -1802,6 +1845,18 @@ struct CompactionOptions {
   // according to the `ColumnFamilyOptions`, taking into account the output
   // level if `compression_per_level` is specified.
   CompressionType compression;
+
+  // Similar to compression, but the algorithm is encapsulated in a Compressor
+  // class. This adds the ability to select plugin compressors, beyond the
+  // built-in ones provided through CompressionType.
+  //
+  // If compressor is specified (not nullptr), it overrides compression.
+  //
+  // If compressor is not specified (nullptr), compression is applied.
+  //
+  // Default: nullptr
+  std::shared_ptr<Compressor> compressor;
+
   // Compaction will create files of size `output_file_size_limit`.
   // Default: MAX, which means that compaction will create a single file
   uint64_t output_file_size_limit;
@@ -1810,6 +1865,7 @@ struct CompactionOptions {
 
   CompactionOptions()
       : compression(kSnappyCompression),
+        compressor(nullptr),
         output_file_size_limit(std::numeric_limits<uint64_t>::max()),
         max_subcompactions(0) {}
 };
