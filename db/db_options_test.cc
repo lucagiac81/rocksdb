@@ -1107,6 +1107,8 @@ TEST_F(DBOptionsTest, ChangeCompression) {
       "LevelCompactionPicker::PickCompaction:Return", [&](void* arg) {
         Compaction* c = reinterpret_cast<Compaction*>(arg);
         compression_used = c->output_compressor()->GetCompressionType();
+        compression_opt_used =
+            *(c->output_compressor()->GetOptions<CompressionOptions>());
         compacted = true;
       });
   SyncPoint::GetInstance()->EnableProcessing();
@@ -1127,7 +1129,8 @@ TEST_F(DBOptionsTest, ChangeCompression) {
   compression_used = CompressionType::kLZ4Compression;
   compacted = false;
   ASSERT_OK(dbfull()->SetOptions(
-      {{"bottommost_compression", "kSnappyCompression"},
+      {{"bottommost_compressor", "nullptr"},
+       {"bottommost_compression", "kSnappyCompression"},
        {"bottommost_compression_opts", "0:6:0:0:4:true"}}));
   ASSERT_OK(Put("foo", "foofoofoo"));
   ASSERT_OK(Put("bar", "foofoofoo"));
@@ -1138,7 +1141,29 @@ TEST_F(DBOptionsTest, ChangeCompression) {
   ASSERT_OK(dbfull()->TEST_WaitForCompact());
   ASSERT_TRUE(compacted);
   ASSERT_EQ(CompressionType::kSnappyCompression, compression_used);
+  // Snappy compressor does not define level option. Default is returned.
+  ASSERT_EQ(32767, compression_opt_used.level);
   // Right now parallel_level is not yet allowed to be changed.
+
+  if (!Zlib_Supported()) {
+    return;
+  }
+  compression_used = CompressionType::kLZ4Compression;
+  compacted = false;
+  ASSERT_OK(dbfull()->SetOptions(
+      {{"bottommost_compressor", "nullptr"},
+       {"bottommost_compression", "kZlibCompression"},
+       {"bottommost_compression_opts", "0:6:0:0:4:true"}}));
+  ASSERT_OK(Put("foo", "foofoofoo"));
+  ASSERT_OK(Put("bar", "foofoofoo"));
+  ASSERT_OK(Flush());
+  ASSERT_OK(Put("foo", "foofoofoo"));
+  ASSERT_OK(Put("bar", "foofoofoo"));
+  ASSERT_OK(Flush());
+  ASSERT_OK(dbfull()->TEST_WaitForCompact());
+  ASSERT_TRUE(compacted);
+  ASSERT_EQ(CompressionType::kZlibCompression, compression_used);
+  ASSERT_EQ(6, compression_opt_used.level);
 
   SyncPoint::GetInstance()->DisableProcessing();
 }
