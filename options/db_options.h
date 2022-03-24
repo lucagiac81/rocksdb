@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "rocksdb/options.h"
+#include "util/compressor.h"
 
 namespace ROCKSDB_NAMESPACE {
 class SystemClock;
@@ -86,6 +87,7 @@ struct ImmutableDBOptions {
   bool two_write_queues;
   bool manual_wal_flush;
   CompressionType wal_compression;
+  std::shared_ptr<Compressor> wal_compressor;
   bool atomic_flush;
   bool avoid_unnecessary_blocking_io;
   bool persist_stats_to_disk;

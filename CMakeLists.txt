@@ -870,6 +870,7 @@ set(SOURCES
         util/comparator.cc
         util/compression.cc
         util/compression_context_cache.cc
+        util/compressor.cc
         util/concurrent_task_limiter_impl.cc
         util/crc32c.cc
         util/dynamic_bloom.cc
@@ -1422,6 +1423,7 @@ if(WITH_TESTS)
         util/autovector_test.cc
         util/bloom_test.cc
         util/coding_test.cc
+        util/compression_test.cc
         util/crc32c_test.cc
         util/defer_test.cc
         util/dynamic_bloom_test.cc

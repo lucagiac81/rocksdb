@@ -304,7 +304,7 @@ IOStatus CacheDumpedLoaderImpl::RestoreCacheEntriesToSecondaryCache() {
         std::unique_ptr<ParsedFullFilterBlock> block_holder;
         block_holder.reset(BlocklikeTraits<ParsedFullFilterBlock>::Create(
             std::move(uncompressed_block), toptions_.read_amp_bytes_per_bit,
-            statistics, false, toptions_.filter_policy.get()));
+            statistics, nullptr, toptions_.filter_policy.get()));
         if (helper != nullptr) {
           s = secondary_cache_->Insert(dump_unit.key,
                                        (void*)(block_holder.get()), helper);
@@ -316,7 +316,7 @@ IOStatus CacheDumpedLoaderImpl::RestoreCacheEntriesToSecondaryCache() {
         std::unique_ptr<Block> block_holder;
         block_holder.reset(BlocklikeTraits<Block>::Create(
             std::move(uncompressed_block), toptions_.read_amp_bytes_per_bit,
-            statistics, false, toptions_.filter_policy.get()));
+            statistics, nullptr, toptions_.filter_policy.get()));
         if (helper != nullptr) {
           s = secondary_cache_->Insert(dump_unit.key,
                                        (void*)(block_holder.get()), helper);
@@ -327,7 +327,7 @@ IOStatus CacheDumpedLoaderImpl::RestoreCacheEntriesToSecondaryCache() {
         helper = BlocklikeTraits<Block>::GetCacheItemHelper(BlockType::kIndex);
         std::unique_ptr<Block> block_holder;
         block_holder.reset(BlocklikeTraits<Block>::Create(
-            std::move(uncompressed_block), 0, statistics, false,
+            std::move(uncompressed_block), 0, statistics, nullptr,
             toptions_.filter_policy.get()));
         if (helper != nullptr) {
           s = secondary_cache_->Insert(dump_unit.key,
@@ -341,7 +341,7 @@ IOStatus CacheDumpedLoaderImpl::RestoreCacheEntriesToSecondaryCache() {
         std::unique_ptr<Block> block_holder;
         block_holder.reset(BlocklikeTraits<Block>::Create(
             std::move(uncompressed_block), toptions_.read_amp_bytes_per_bit,
-            statistics, false, toptions_.filter_policy.get()));
+            statistics, nullptr, toptions_.filter_policy.get()));
         if (helper != nullptr) {
           s = secondary_cache_->Insert(dump_unit.key,
                                        (void*)(block_holder.get()), helper);
