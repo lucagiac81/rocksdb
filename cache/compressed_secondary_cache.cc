@@ -59,17 +59,17 @@ std::unique_ptr<SecondaryCacheResultHandle> CompressedSecondaryCache::Lookup(
   if (cache_options_.compression_type == kNoCompression) {
     s = create_cb(ptr->get(), cache_->GetCharge(lru_handle), &value, &charge);
   } else {
-    UncompressionContext uncompression_context(cache_options_.compression_type);
-    UncompressionInfo uncompression_info(uncompression_context,
-                                         UncompressionDict::GetEmptyDict(),
-                                         cache_options_.compression_type);
+    auto compressor =
+        BuiltinCompressor::GetCompressor(cache_options_.compression_type);
+    UncompressionInfo uncompression_info(UncompressionDict::GetEmptyDict(),
+                                         cache_options_.compress_format_version,
+                                         cache_options_.memory_allocator.get());
 
     size_t uncompressed_size = 0;
     CacheAllocationPtr uncompressed;
-    uncompressed = UncompressData(
-        uncompression_info, (char*)ptr->get(), cache_->GetCharge(lru_handle),
-        &uncompressed_size, cache_options_.compress_format_version,
-        cache_options_.memory_allocator.get());
+    uncompressed = uncompression_info.UncompressData(
+        compressor.get(), (char*)ptr->get(), cache_->GetCharge(lru_handle),
+        &uncompressed_size);
 
     if (!uncompressed) {
       cache_->Release(lru_handle, /* erase_if_last_ref */ true);
@@ -103,16 +103,15 @@ Status CompressedSecondaryCache::Insert(const Slice& key, void* value,
 
   std::string compressed_val;
   if (cache_options_.compression_type != kNoCompression) {
-    CompressionOptions compression_opts;
-    CompressionContext compression_context(cache_options_.compression_type);
+    auto compressor =
+        BuiltinCompressor::GetCompressor(cache_options_.compression_type);
     uint64_t sample_for_compression = 0;
-    CompressionInfo compression_info(
-        compression_opts, compression_context, CompressionDict::GetEmptyDict(),
-        cache_options_.compression_type, sample_for_compression);
+    CompressionInfo compression_info(CompressionDict::GetEmptyDict(),
+                                     cache_options_.compress_format_version,
+                                     sample_for_compression);
 
     bool success =
-        CompressData(val, compression_info,
-                     cache_options_.compress_format_version, &compressed_val);
+        compression_info.CompressData(compressor.get(), val, &compressed_val);
 
     if (!success) {
       return Status::Corruption("Error compressing value.");

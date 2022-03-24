@@ -309,14 +309,9 @@ bool FindIntraL0Compaction(
     CompactionInputFiles* comp_inputs,
     SequenceNumber earliest_mem_seqno = kMaxSequenceNumber);
 
-CompressionType GetCompressionType(const VersionStorageInfo* vstorage,
-                                   const MutableCFOptions& mutable_cf_options,
-                                   int level, int base_level,
-                                   const bool enable_compression = true);
-
-CompressionOptions GetCompressionOptions(
-    const MutableCFOptions& mutable_cf_options,
-    const VersionStorageInfo* vstorage, int level,
+std::shared_ptr<Compressor> GetCompressor(
+    const VersionStorageInfo* vstorage,
+    const MutableCFOptions& mutable_cf_options, int level, int base_level,
     const bool enable_compression = true);
 
 }  // namespace ROCKSDB_NAMESPACE

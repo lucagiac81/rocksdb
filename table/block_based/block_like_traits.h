@@ -22,9 +22,10 @@ Cache::CacheItemHelper* GetCacheItemHelperForRole();
 
 template <typename TBlocklike>
 Cache::CreateCallback GetCreateCallback(size_t read_amp_bytes_per_bit,
-                                        Statistics* statistics, bool using_zstd,
+                                        Statistics* statistics,
+                                        Compressor* compressor,
                                         const FilterPolicy* filter_policy) {
-  return [read_amp_bytes_per_bit, statistics, using_zstd, filter_policy](
+  return [read_amp_bytes_per_bit, statistics, compressor, filter_policy](
              const void* buf, size_t size, void** out_obj,
              size_t* charge) -> Status {
     assert(buf != nullptr);
@@ -32,7 +33,7 @@ Cache::CreateCallback GetCreateCallback(size_t read_amp_bytes_per_bit,
     memcpy(buf_data.get(), buf, size);
     BlockContents bc = BlockContents(std::move(buf_data), size);
     TBlocklike* ucd_ptr = BlocklikeTraits<TBlocklike>::Create(
-        std::move(bc), read_amp_bytes_per_bit, statistics, using_zstd,
+        std::move(bc), read_amp_bytes_per_bit, statistics, compressor,
         filter_policy);
     *out_obj = reinterpret_cast<void*>(ucd_ptr);
     *charge = size;
@@ -46,7 +47,7 @@ class BlocklikeTraits<BlockContents> {
   static BlockContents* Create(BlockContents&& contents,
                                size_t /* read_amp_bytes_per_bit */,
                                Statistics* /* statistics */,
-                               bool /* using_zstd */,
+                               Compressor* /* compressor */,
                                const FilterPolicy* /* filter_policy */) {
     return new BlockContents(std::move(contents));
   }
@@ -85,7 +86,7 @@ class BlocklikeTraits<ParsedFullFilterBlock> {
   static ParsedFullFilterBlock* Create(BlockContents&& contents,
                                        size_t /* read_amp_bytes_per_bit */,
                                        Statistics* /* statistics */,
-                                       bool /* using_zstd */,
+                                       Compressor* /* compressor */,
                                        const FilterPolicy* filter_policy) {
     return new ParsedFullFilterBlock(filter_policy, std::move(contents));
   }
@@ -123,7 +124,7 @@ template <>
 class BlocklikeTraits<Block> {
  public:
   static Block* Create(BlockContents&& contents, size_t read_amp_bytes_per_bit,
-                       Statistics* statistics, bool /* using_zstd */,
+                       Statistics* statistics, Compressor* /* compressor */,
                        const FilterPolicy* /* filter_policy */) {
     return new Block(std::move(contents), read_amp_bytes_per_bit, statistics);
   }
@@ -174,10 +175,13 @@ class BlocklikeTraits<UncompressionDict> {
   static UncompressionDict* Create(BlockContents&& contents,
                                    size_t /* read_amp_bytes_per_bit */,
                                    Statistics* /* statistics */,
-                                   bool using_zstd,
+                                   Compressor* compressor,
                                    const FilterPolicy* /* filter_policy */) {
-    return new UncompressionDict(contents.data, std::move(contents.allocation),
-                                 using_zstd);
+    if (compressor != nullptr) {
+      return compressor->NewUncompressionDict(contents.data,
+                                              std::move(contents.allocation));
+    }
+    return new UncompressionDict(contents.data, std::move(contents.allocation));
   }
 
   static uint32_t GetNumRestarts(const UncompressionDict& /* dict */) {

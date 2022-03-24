@@ -26,7 +26,7 @@
 #include "table/persistent_cache_helper.h"
 #include "util/cast_util.h"
 #include "util/coding.h"
-#include "util/compression.h"
+#include "util/compressor.h"
 #include "util/crc32c.h"
 #include "util/hash.h"
 #include "util/stop_watch.h"
@@ -495,29 +495,31 @@ uint32_t ComputeBuiltinChecksumWithLastByte(ChecksumType type, const char* data,
 }
 
 Status UncompressBlockContentsForCompressionType(
-    const UncompressionInfo& uncompression_info, const char* data, size_t n,
-    BlockContents* contents, uint32_t format_version,
-    const ImmutableOptions& ioptions, MemoryAllocator* allocator) {
+    Compressor* uncompressor, const UncompressionInfo& uinfo, const char* input,
+    size_t input_size, BlockContents* contents,
+    const ImmutableOptions& ioptions) {
   Status ret = Status::OK();
 
-  assert(uncompression_info.type() != kNoCompression &&
+  assert((uncompressor == nullptr ||
+          uncompressor->GetCompressionType() != kNoCompression) &&
          "Invalid compression type");
 
   StopWatchNano timer(ioptions.clock,
                       ShouldReportDetailedTime(ioptions.env, ioptions.stats));
   size_t uncompressed_size = 0;
   CacheAllocationPtr ubuf =
-      UncompressData(uncompression_info, data, n, &uncompressed_size,
-                     GetCompressFormatForVersion(format_version), allocator);
+      uinfo.UncompressData(uncompressor, input, input_size, &uncompressed_size);
   if (!ubuf) {
-    if (!CompressionTypeSupported(uncompression_info.type())) {
+    if (uncompressor == nullptr) {
       return Status::NotSupported(
-          "Unsupported compression method for this build",
-          CompressionTypeToString(uncompression_info.type()));
+          "Unsupported compression method for this build ");
+    } else if (!uncompressor->Supported()) {
+      return Status::NotSupported(
+          "Unsupported compression method for this build ",
+          uncompressor->GetId());
     } else {
-      return Status::Corruption(
-          "Corrupted compressed block contents",
-          CompressionTypeToString(uncompression_info.type()));
+      return Status::Corruption("Corrupted compressed block contents",
+                                uncompressor->GetId());
     }
   }
 
@@ -549,16 +551,15 @@ Status UncompressBlockContentsForCompressionType(
 // buffer is returned via 'result' and it is upto the caller to
 // free this buffer.
 // format_version is the block format as defined in include/rocksdb/table.h
-Status UncompressBlockContents(const UncompressionInfo& uncompression_info,
-                               const char* data, size_t n,
-                               BlockContents* contents, uint32_t format_version,
-                               const ImmutableOptions& ioptions,
-                               MemoryAllocator* allocator) {
+Status UncompressBlockContents(Compressor* uncompressor,
+                               const UncompressionInfo& uinfo, const char* data,
+                               size_t n, BlockContents* contents,
+                               const ImmutableOptions& ioptions) {
+  assert(uncompressor != nullptr);
   assert(data[n] != kNoCompression);
-  assert(data[n] == static_cast<char>(uncompression_info.type()));
-  return UncompressBlockContentsForCompressionType(uncompression_info, data, n,
-                                                   contents, format_version,
-                                                   ioptions, allocator);
+  assert(data[n] == uncompressor->GetCompressionType());
+  return UncompressBlockContentsForCompressionType(uncompressor, uinfo, data, n,
+                                                   contents, ioptions);
 }
 
 // Replace the contents of db_host_id with the actual hostname, if db_host_id

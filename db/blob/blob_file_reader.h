@@ -13,6 +13,7 @@
 #include "rocksdb/compression_type.h"
 #include "rocksdb/rocksdb_namespace.h"
 #include "util/autovector.h"
+#include "util/compressor.h"
 
 namespace ROCKSDB_NAMESPACE {
 
@@ -43,7 +44,7 @@ class BlobFileReader {
 
   Status GetBlob(const ReadOptions& read_options, const Slice& user_key,
                  uint64_t offset, uint64_t value_size,
-                 CompressionType compression_type,
+                 const std::shared_ptr<Compressor>& compressor,
                  FilePrefetchBuffer* prefetch_buffer, PinnableSlice* value,
                  uint64_t* bytes_read) const;
 
@@ -52,13 +53,16 @@ class BlobFileReader {
                     autovector<BlobReadRequest*>& blob_reqs,
                     uint64_t* bytes_read) const;
 
-  CompressionType GetCompressionType() const { return compression_type_; }
+  const std::shared_ptr<Compressor>& GetCompressor() const {
+    return compressor_;
+  }
 
   uint64_t GetFileSize() const { return file_size_; }
 
  private:
   BlobFileReader(std::unique_ptr<RandomAccessFileReader>&& file_reader,
-                 uint64_t file_size, CompressionType compression_type,
+                 uint64_t file_size,
+                 const std::shared_ptr<Compressor>& compressor,
                  SystemClock* clock, Statistics* statistics);
 
   static Status OpenFile(const ImmutableOptions& immutable_options,
@@ -71,7 +75,7 @@ class BlobFileReader {
 
   static Status ReadHeader(const RandomAccessFileReader* file_reader,
                            uint32_t column_family_id, Statistics* statistics,
-                           CompressionType* compression_type);
+                           std::shared_ptr<Compressor>* compressor);
 
   static Status ReadFooter(const RandomAccessFileReader* file_reader,
                            uint64_t file_size, Statistics* statistics);
@@ -88,7 +92,7 @@ class BlobFileReader {
                            uint64_t value_size);
 
   static Status UncompressBlobIfNeeded(const Slice& value_slice,
-                                       CompressionType compression_type,
+                                       Compressor* compressor,
                                        SystemClock* clock,
                                        Statistics* statistics,
                                        PinnableSlice* value);
@@ -97,7 +101,7 @@ class BlobFileReader {
 
   std::unique_ptr<RandomAccessFileReader> file_reader_;
   uint64_t file_size_;
-  CompressionType compression_type_;
+  std::shared_ptr<Compressor> compressor_;
   SystemClock* clock_;
   Statistics* statistics_;
 };

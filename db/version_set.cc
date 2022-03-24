@@ -1900,7 +1900,8 @@ Status Version::GetBlob(const ReadOptions& read_options, const Slice& user_key,
   const Status s = blob_source_->GetBlob(
       read_options, user_key, blob_file_number, blob_index.offset(),
       blob_file_meta->GetBlobFileSize(), blob_index.size(),
-      blob_index.compression(), prefetch_buffer, value, bytes_read);
+      BuiltinCompressor::GetCompressor(blob_index.compression()),
+      prefetch_buffer, value, bytes_read);
 
   return s;
 }
@@ -1918,6 +1919,7 @@ void Version::MultiGetBlob(
 
     autovector<BlobReadRequest> blob_reqs_in_file;
     BlobReadContexts& blobs_in_file = ctx.second;
+
     for (const auto& blob : blobs_in_file) {
       const BlobIndex& blob_index = blob.first;
       const KeyContext& key_context = blob.second;
@@ -1933,10 +1935,12 @@ void Version::MultiGetBlob(
         continue;
       }
 
+      std::shared_ptr<Compressor> compressor =
+          BuiltinCompressor::GetCompressor(blob_index.compression());
       key_context.value->Reset();
       blob_reqs_in_file.emplace_back(
           key_context.ukey_with_ts, blob_index.offset(), blob_index.size(),
-          blob_index.compression(), key_context.value, key_context.s);
+          compressor.get(), key_context.value, key_context.s);
     }
     if (blob_reqs_in_file.size() > 0) {
       const auto file_size = blob_file_meta->GetBlobFileSize();

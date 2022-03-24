@@ -105,8 +105,7 @@ struct TableBuilderOptions {
       const ImmutableOptions& _ioptions, const MutableCFOptions& _moptions,
       const InternalKeyComparator& _internal_comparator,
       const IntTblPropCollectorFactories* _int_tbl_prop_collector_factories,
-      CompressionType _compression_type,
-      const CompressionOptions& _compression_opts, uint32_t _column_family_id,
+      std::shared_ptr<Compressor> _compressor, uint32_t _column_family_id,
       const std::string& _column_family_name, int _level,
       bool _is_bottommost = false,
       TableFileCreationReason _reason = TableFileCreationReason::kMisc,
@@ -118,8 +117,7 @@ struct TableBuilderOptions {
         moptions(_moptions),
         internal_comparator(_internal_comparator),
         int_tbl_prop_collector_factories(_int_tbl_prop_collector_factories),
-        compression_type(_compression_type),
-        compression_opts(_compression_opts),
+        compressor(_compressor),
         column_family_id(_column_family_id),
         column_family_name(_column_family_name),
         oldest_key_time(_oldest_key_time),
@@ -136,8 +134,7 @@ struct TableBuilderOptions {
   const MutableCFOptions& moptions;
   const InternalKeyComparator& internal_comparator;
   const IntTblPropCollectorFactories* int_tbl_prop_collector_factories;
-  const CompressionType compression_type;
-  const CompressionOptions& compression_opts;
+  std::shared_ptr<Compressor> compressor;
   const uint32_t column_family_id;
   const std::string& column_family_name;
   const int64_t oldest_key_time;

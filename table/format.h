@@ -25,7 +25,8 @@
 #include "util/hash.h"
 
 namespace ROCKSDB_NAMESPACE {
-
+class Compressor;
+class UncompressionInfo;
 class RandomAccessFile;
 struct ReadOptions;
 
@@ -324,22 +325,18 @@ struct BlockContents {
 // contents are uncompresed into this buffer. This buffer is
 // returned via 'result' and it is upto the caller to
 // free this buffer.
-// For description of compress_format_version and possible values, see
-// util/compression.h
-extern Status UncompressBlockContents(const UncompressionInfo& info,
+extern Status UncompressBlockContents(Compressor* uncompressor,
+                                      const UncompressionInfo& info,
                                       const char* data, size_t n,
                                       BlockContents* contents,
-                                      uint32_t compress_format_version,
-                                      const ImmutableOptions& ioptions,
-                                      MemoryAllocator* allocator = nullptr);
+                                      const ImmutableOptions& ioptions);
 
 // This is an extension to UncompressBlockContents that accepts
 // a specific compression type. This is used by un-wrapped blocks
 // with no compression header.
 extern Status UncompressBlockContentsForCompressionType(
-    const UncompressionInfo& info, const char* data, size_t n,
-    BlockContents* contents, uint32_t compress_format_version,
-    const ImmutableOptions& ioptions, MemoryAllocator* allocator = nullptr);
+    Compressor* uncompressor, const UncompressionInfo& info, const char* data,
+    size_t n, BlockContents* contents, const ImmutableOptions& ioptions);
 
 // Replace db_host_id contents with the real hostname if necessary
 extern Status ReifyDbHostIdProperty(Env* env, std::string* db_host_id);
