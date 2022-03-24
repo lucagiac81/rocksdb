@@ -22,6 +22,7 @@
 #include "rocksdb/system_clock.h"
 #include "rocksdb/utilities/options_type.h"
 #include "rocksdb/wal_filter.h"
+#include "util/compression.h"
 #include "util/string_util.h"
 
 namespace ROCKSDB_NAMESPACE {
@@ -763,6 +764,8 @@ ImmutableDBOptions::ImmutableDBOptions(const DBOptions& options)
   clock = env->GetSystemClock().get();
   logger = info_log.get();
   stats = statistics.get();
+  wal_compressor =
+      BuiltinCompressor::GetCompressor(wal_compression, CompressionOptions());
 }
 
 void ImmutableDBOptions::Dump(Logger* log) const {
@@ -901,8 +904,12 @@ void ImmutableDBOptions::Dump(Logger* log) const {
                    two_write_queues);
   ROCKS_LOG_HEADER(log, "            Options.manual_wal_flush: %d",
                    manual_wal_flush);
-  ROCKS_LOG_HEADER(log, "            Options.wal_compression: %d",
-                   wal_compression);
+  std::string type_str = (wal_compressor)
+                             ? wal_compressor->GetId()
+                             : BuiltinCompressor::TypeToString(wal_compression);
+  ROCKS_LOG_HEADER(log, "            Options.wal_compression: %s",
+                   type_str.c_str());
+
   ROCKS_LOG_HEADER(log, "            Options.atomic_flush: %d", atomic_flush);
   ROCKS_LOG_HEADER(log,
                    "            Options.avoid_unnecessary_blocking_io: %d",

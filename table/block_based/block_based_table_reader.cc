@@ -121,15 +121,17 @@ Status ReadBlockFromFile(
     bool do_uncompress, bool maybe_compressed, BlockType block_type,
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, size_t read_amp_bytes_per_bit,
-    MemoryAllocator* memory_allocator, bool for_compaction, bool using_zstd,
-    const FilterPolicy* filter_policy, bool async_read) {
+    MemoryAllocator* memory_allocator, bool for_compaction,
+    std::shared_ptr<Compressor>& compressor, const FilterPolicy* filter_policy,
+    bool async_read) {
   assert(result);
 
   BlockContents contents;
-  BlockFetcher block_fetcher(
-      file, prefetch_buffer, footer, options, handle, &contents, ioptions,
-      do_uncompress, maybe_compressed, block_type, uncompression_dict,
-      cache_options, memory_allocator, nullptr, for_compaction);
+  BlockFetcher block_fetcher(file, prefetch_buffer, footer, options, handle,
+                             &contents, ioptions, do_uncompress,
+                             maybe_compressed, block_type, uncompression_dict,
+                             cache_options, memory_allocator, nullptr,
+                             for_compaction, compressor.get());
   Status s;
   // If prefetch_buffer is not allocated, it will fallback to synchronous
   // reading of block contents.
@@ -143,8 +145,8 @@ Status ReadBlockFromFile(
   }
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
-        std::move(contents), read_amp_bytes_per_bit, ioptions.stats, using_zstd,
-        filter_policy));
+        std::move(contents), read_amp_bytes_per_bit, ioptions.stats,
+        compressor.get(), filter_policy));
   }
 
   return s;
@@ -900,14 +902,17 @@ Status BlockBasedTable::ReadPropertiesBlock(
     } else {
       assert(table_properties != nullptr);
       rep_->table_properties = std::move(table_properties);
-      rep_->blocks_maybe_compressed =
-          rep_->table_properties->compression_name !=
-          CompressionTypeToString(kNoCompression);
-      rep_->blocks_definitely_zstd_compressed =
-          (rep_->table_properties->compression_name ==
-               CompressionTypeToString(kZSTD) ||
-           rep_->table_properties->compression_name ==
-               CompressionTypeToString(kZSTDNotFinalCompression));
+      ConfigOptions config_options;
+      s = Compressor::CreateFromString(config_options,
+                                       rep_->table_properties->compression_name,
+                                       &rep_->compressor);
+      if (!s.ok() || rep_->compressor == nullptr) {
+        ROCKS_LOG_ERROR(rep_->ioptions.logger,
+                        "Compression type not supported");
+      } else {
+        rep_->blocks_maybe_compressed =
+            (rep_->compressor->GetCompressionType() != kNoCompression);
+      }
     }
   } else {
     ROCKS_LOG_ERROR(rep_->ioptions.logger,
@@ -1254,8 +1259,8 @@ Status BlockBasedTable::ReadMetaIndexBlock(
       true /* decompress */, true /*maybe_compressed*/, BlockType::kMetaIndex,
       UncompressionDict::GetEmptyDict(), rep_->persistent_cache_options,
       0 /* read_amp_bytes_per_bit */, GetMemoryAllocator(rep_->table_options),
-      false /* for_compaction */, rep_->blocks_definitely_zstd_compressed,
-      nullptr /* filter_policy */, false /* async_read */);
+      false /* for_compaction */, rep_->compressor, nullptr /* filter_policy */,
+      false /* async_read */);
 
   if (!s.ok()) {
     ROCKS_LOG_ERROR(rep_->ioptions.logger,
@@ -1301,10 +1306,10 @@ Status BlockBasedTable::GetDataBlockFromCache(
   BlockContents* compressed_block = nullptr;
   Cache::Handle* block_cache_compressed_handle = nullptr;
   Statistics* statistics = rep_->ioptions.statistics.get();
-  bool using_zstd = rep_->blocks_definitely_zstd_compressed;
   const FilterPolicy* filter_policy = rep_->filter_policy;
-  Cache::CreateCallback create_cb = GetCreateCallback<TBlocklike>(
-      read_amp_bytes_per_bit, statistics, using_zstd, filter_policy);
+  Cache::CreateCallback create_cb =
+      GetCreateCallback<TBlocklike>(read_amp_bytes_per_bit, statistics,
+                                    rep_->compressor.get(), filter_policy);
 
   // Lookup uncompressed cache first
   if (block_cache != nullptr) {
@@ -1350,12 +1355,15 @@ Status BlockBasedTable::GetDataBlockFromCache(
   assert(compression_type != kNoCompression);
 
   // Retrieve the uncompressed contents into a new buffer
-  UncompressionContext context(compression_type);
-  UncompressionInfo info(context, uncompression_dict, compression_type);
-  s = UncompressSerializedBlock(
-      info, compressed_block->data.data(), compressed_block->data.size(),
-      &contents, rep_->table_options.format_version, rep_->ioptions,
+  std::shared_ptr<Compressor> compressor =
+      rep_->GetCompressor(compression_type);
+  UncompressionInfo info(
+      uncompression_dict,
+      GetCompressFormatForVersion(rep_->table_options.format_version),
       GetMemoryAllocator(rep_->table_options));
+  s = UncompressSerializedBlock(
+      compressor.get(), info, compressed_block->data.data(),
+      compressed_block->data.size(), &contents, rep_->ioptions);
 
   // Insert parsed block into block cache, the priority is based on the
   // data block type.
@@ -1363,8 +1371,8 @@ Status BlockBasedTable::GetDataBlockFromCache(
     std::unique_ptr<TBlocklike> block_holder(
         BlocklikeTraits<TBlocklike>::Create(
             std::move(contents), read_amp_bytes_per_bit, statistics,
-            rep_->blocks_definitely_zstd_compressed,
-            rep_->table_options.filter_policy.get()));
+            rep_->compressor.get(),
+            rep_->table_options.filter_policy.get()));  // uncompressed block
 
     if (block_cache != nullptr && block_holder->own_bytes() &&
         read_options.fill_cache) {
@@ -1423,26 +1431,27 @@ Status BlockBasedTable::PutDataBlockToCache(
   std::unique_ptr<TBlocklike> block_holder;
   if (block_comp_type != kNoCompression) {
     // Retrieve the uncompressed contents into a new buffer
+    std::shared_ptr<Compressor> compressor =
+        rep_->GetCompressor(block_comp_type);
     BlockContents uncompressed_block_contents;
-    UncompressionContext context(block_comp_type);
-    UncompressionInfo info(context, uncompression_dict, block_comp_type);
-    s = UncompressBlockData(info, block_contents.data.data(),
+    UncompressionInfo info(uncompression_dict,
+                           GetCompressFormatForVersion(format_version),
+                           memory_allocator);
+    s = UncompressBlockData(compressor.get(), info, block_contents.data.data(),
                             block_contents.data.size(),
-                            &uncompressed_block_contents, format_version,
-                            ioptions, memory_allocator);
+                            &uncompressed_block_contents, ioptions);
     if (!s.ok()) {
       return s;
     }
 
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(uncompressed_block_contents), read_amp_bytes_per_bit,
-        statistics, rep_->blocks_definitely_zstd_compressed,
+        statistics, rep_->compressor.get(),
         rep_->table_options.filter_policy.get()));
   } else {
     block_holder.reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(block_contents), read_amp_bytes_per_bit, statistics,
-        rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get()));
+        rep_->compressor.get(), rep_->table_options.filter_policy.get()));
   }
 
   // Insert compressed block into compressed block cache.
@@ -1638,7 +1647,8 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
             &tmp_contents, rep_->ioptions, do_uncompress, maybe_compressed,
             block_type, uncompression_dict, rep_->persistent_cache_options,
             GetMemoryAllocator(rep_->table_options),
-            GetMemoryAllocatorForCompressedBlock(rep_->table_options));
+            GetMemoryAllocatorForCompressedBlock(rep_->table_options), false,
+            rep_->compressor.get());
 
         // If prefetch_buffer is not allocated, it will fallback to synchronous
         // reading of block contents.
@@ -1806,8 +1816,7 @@ Status BlockBasedTable::RetrieveBlock(
             ? rep_->table_options.read_amp_bytes_per_bit
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
-        rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get(), async_read);
+        rep_->compressor, rep_->table_options.filter_policy.get(), async_read);
 
     if (get_context) {
       switch (block_type) {

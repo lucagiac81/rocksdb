@@ -23,6 +23,7 @@
 #if !defined(ROCKSDB_LITE)
 #include "test_util/sync_point.h"
 #endif
+#include "util/compressor.h"
 #include "util/file_checksum_helper.h"
 #include "util/random.h"
 #include "utilities/counted_fs.h"
@@ -3365,15 +3366,14 @@ class DBBasicTestMultiGet : public DBTestBase {
     Random rnd(301);
     BlockBasedTableOptions table_options;
 
-#ifndef ROCKSDB_LITE
     if (compression_enabled_) {
-      std::vector<CompressionType> compression_types;
-      compression_types = GetSupportedCompressions();
       // Not every platform may have compression libraries available, so
       // dynamically pick based on what's available
       CompressionType tmp_type = kNoCompression;
-      for (auto c_type : compression_types) {
-        if (c_type != kNoCompression) {
+      for (auto c : Compressor::GetSupported()) {
+        CompressionType c_type;
+        if (BuiltinCompressor::StringToType(c, &c_type) &&
+            c_type != kNoCompression) {
           tmp_type = c_type;
           break;
         }
@@ -3384,12 +3384,6 @@ class DBBasicTestMultiGet : public DBTestBase {
         compression_enabled_ = false;
       }
     }
-#else
-    // GetSupportedCompressions() is not available in LITE build
-    if (!Snappy_Supported()) {
-      compression_enabled_ = false;
-    }
-#endif  // ROCKSDB_LITE
 
     table_options.block_cache = uncompressed_cache_;
     if (table_options.block_cache == nullptr) {
