@@ -847,11 +847,13 @@ TEST_F(BlockPerKVChecksumTest, EmptyBlock) {
   std::unique_ptr<Block_kData> data_block;
   Options options = Options();
   BlockBasedTableOptions tbo;
+  std::shared_ptr<Compressor> compressor =
+      BuiltinCompressor::GetCompressor(kNoCompression);
   uint8_t protection_bytes_per_key = 8;
   BlockCreateContext create_context{&tbo,
                                     nullptr,
                                     nullptr /* statistics */,
-                                    false /* using_zstd */,
+                                    compressor,
                                     protection_bytes_per_key,
                                     options.comparator};
   create_context.Create(&data_block, std::move(contents));
@@ -887,13 +889,12 @@ TEST_F(BlockPerKVChecksumTest, InitializeProtectionInfo) {
   // when the block is itself already corrupted.
   Options options = Options();
   BlockBasedTableOptions tbo;
+  std::shared_ptr<Compressor> compressor =
+      BuiltinCompressor::GetCompressor(kNoCompression);
   uint8_t protection_bytes_per_key = 8;
-  BlockCreateContext create_context{&tbo,
-                                    nullptr /* ioptions */,
-                                    nullptr /* statistics */,
-                                    false /* using_zstd */,
-                                    protection_bytes_per_key,
-                                    options.comparator};
+  BlockCreateContext create_context{
+      &tbo,       nullptr /* ioptions */,   nullptr /* statistics */,
+      compressor, protection_bytes_per_key, options.comparator};
 
   {
     std::string invalid_content = "1";
@@ -952,19 +953,17 @@ TEST_F(BlockPerKVChecksumTest, ApproximateMemory) {
 
   Options options = Options();
   BlockBasedTableOptions tbo;
+  std::shared_ptr<Compressor> compressor =
+      BuiltinCompressor::GetCompressor(kNoCompression);
   uint8_t protection_bytes_per_key = 8;
   BlockCreateContext with_checksum_create_context{
-      &tbo,
-      nullptr /* ioptions */,
-      nullptr /* statistics */,
-      false /* using_zstd */,
-      protection_bytes_per_key,
-      options.comparator,
+      &tbo,       nullptr /* ioptions */,   nullptr /* statistics */,
+      compressor, protection_bytes_per_key, options.comparator,
       true /* index_value_is_full */};
   BlockCreateContext create_context{&tbo,
                                     nullptr /* ioptions */,
                                     nullptr /* statistics */,
-                                    false /* using_zstd */,
+                                    compressor,
                                     0,
                                     options.comparator,
                                     true /* index_value_is_full */};
@@ -1056,12 +1055,11 @@ class DataBlockKVChecksumTest
       std::vector<std::string> &keys, std::vector<std::string> &values,
       int num_record) {
     BlockBasedTableOptions tbo;
-    BlockCreateContext create_context{&tbo,
-                                      nullptr /* statistics */,
-                                      nullptr /* ioptions */,
-                                      false /* using_zstd */,
-                                      GetChecksumLen(),
-                                      Options().comparator};
+    std::shared_ptr<Compressor> compressor =
+        BuiltinCompressor::GetCompressor(kNoCompression);
+    BlockCreateContext create_context{
+        &tbo,       nullptr /* statistics */, nullptr /* ioptions */,
+        compressor, GetChecksumLen(),         Options().comparator};
     builder_ = std::make_unique<BlockBuilder>(
         static_cast<int>(GetRestartInterval()),
         GetUseDeltaEncoding() /* use_delta_encoding */,
@@ -1183,12 +1181,14 @@ class IndexBlockKVChecksumTest
       std::vector<std::string> &first_keys, int num_record) {
     Options options = Options();
     BlockBasedTableOptions tbo;
+    std::shared_ptr<Compressor> compressor =
+        BuiltinCompressor::GetCompressor(kNoCompression);
     uint8_t protection_bytes_per_key = GetChecksumLen();
     BlockCreateContext create_context{
         &tbo,
         nullptr /* ioptions */,
         nullptr /* statistics */,
-        false /* _using_zstd */,
+        compressor,
         protection_bytes_per_key,
         options.comparator,
         !UseValueDeltaEncoding() /* value_is_full */,
@@ -1326,13 +1326,12 @@ class MetaIndexBlockKVChecksumTest
       int num_record) {
     Options options = Options();
     BlockBasedTableOptions tbo;
+    std::shared_ptr<Compressor> compressor =
+        BuiltinCompressor::GetCompressor(kNoCompression);
     uint8_t protection_bytes_per_key = GetChecksumLen();
-    BlockCreateContext create_context{&tbo,
-                                      nullptr /* ioptions */,
-                                      nullptr /* statistics */,
-                                      false /* using_zstd */,
-                                      protection_bytes_per_key,
-                                      options.comparator};
+    BlockCreateContext create_context{
+        &tbo,       nullptr /* ioptions */,   nullptr /* statistics */,
+        compressor, protection_bytes_per_key, options.comparator};
     builder_ =
         std::make_unique<BlockBuilder>(static_cast<int>(GetRestartInterval()));
     // add a bunch of records to a block
@@ -1361,13 +1360,12 @@ INSTANTIATE_TEST_CASE_P(P, MetaIndexBlockKVChecksumTest,
 TEST_P(MetaIndexBlockKVChecksumTest, ChecksumConstructionAndVerification) {
   Options options = Options();
   BlockBasedTableOptions tbo;
+  std::shared_ptr<Compressor> compressor =
+      BuiltinCompressor::GetCompressor(kNoCompression);
   uint8_t protection_bytes_per_key = GetChecksumLen();
-  BlockCreateContext create_context{&tbo,
-                                    nullptr /* ioptions */,
-                                    nullptr /* statistics */,
-                                    false /* using_zstd */,
-                                    protection_bytes_per_key,
-                                    options.comparator};
+  BlockCreateContext create_context{
+      &tbo,       nullptr /* ioptions */,   nullptr /* statistics */,
+      compressor, protection_bytes_per_key, options.comparator};
   std::vector<int> num_restart_intervals = {1, 16};
   for (const auto num_restart_interval : num_restart_intervals) {
     const int kNumRecords = num_restart_interval * GetRestartInterval();
