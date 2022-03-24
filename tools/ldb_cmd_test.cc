@@ -24,6 +24,7 @@
 #include "test_util/testutil.h"
 #include "util/file_checksum_helper.h"
 #include "util/random.h"
+#include "util/string_util.h"
 
 using std::map;
 using std::string;

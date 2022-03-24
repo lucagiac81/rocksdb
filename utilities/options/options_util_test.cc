@@ -19,6 +19,7 @@
 #include "test_util/testharness.h"
 #include "test_util/testutil.h"
 #include "util/random.h"
+#include "util/string_util.h"
 
 #ifndef GFLAGS
 bool FLAGS_enable_print = false;
