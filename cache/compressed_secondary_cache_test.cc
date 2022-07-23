@@ -91,7 +91,7 @@ class CompressedSecondaryCacheTest : public testing::Test {
     Random rnd(301);
     // Insert and Lookup the first item.
     std::string str1;
-    test::CompressibleString(&rnd, 0.25, 1000, &str1);
+    test::CompressibleString(&rnd, 0.25, 1000, &str1, "");
     TestItem item1(str1.data(), str1.length());
     ASSERT_OK(sec_cache->Insert("k1", &item1,
                                 &CompressedSecondaryCacheTest::helper_));
@@ -113,7 +113,7 @@ class CompressedSecondaryCacheTest : public testing::Test {
 
     // Insert and Lookup the second item.
     std::string str2;
-    test::CompressibleString(&rnd, 0.5, 1000, &str2);
+    test::CompressibleString(&rnd, 0.5, 1000, &str2, "");
     TestItem item2(str2.data(), str2.length());
     ASSERT_OK(sec_cache->Insert("k2", &item2,
                                 &CompressedSecondaryCacheTest::helper_));

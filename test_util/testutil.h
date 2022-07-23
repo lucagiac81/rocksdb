@@ -56,7 +56,8 @@ extern std::string RandomKey(Random* rnd, int len,
 // "N*compressed_fraction" bytes and return a Slice that references
 // the generated data.
 extern Slice CompressibleString(Random* rnd, double compressed_fraction,
-                                int len, std::string* dst);
+                                int len, std::string* dst,
+                                const std::string& src);
 
 #ifndef NDEBUG
 // An internal comparator that just forward comparing results from the
