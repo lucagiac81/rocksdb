@@ -253,7 +253,7 @@ TEST_F(DBTieredSecondaryCacheTest, BasicTest) {
   const int N = 256;
   for (int i = 0; i < N; i++) {
     std::string p_v;
-    test::CompressibleString(&rnd, 0.5, 1007, &p_v);
+    test::CompressibleString(&rnd, 0.5, 1007, &p_v, "");
     ASSERT_OK(Put(Key(i), p_v));
   }
 
@@ -362,7 +362,7 @@ TEST_F(DBTieredSecondaryCacheTest, BasicMultiGetTest) {
   const int N = 256;
   for (int i = 0; i < N; i++) {
     std::string p_v;
-    test::CompressibleString(&rnd, 0.5, 1007, &p_v);
+    test::CompressibleString(&rnd, 0.5, 1007, &p_v, "");
     ASSERT_OK(Put(Key(i), p_v));
   }
 
@@ -504,7 +504,7 @@ TEST_F(DBTieredSecondaryCacheTest, WaitAllTest) {
   const int N = 256;
   for (int i = 0; i < N; i++) {
     std::string p_v;
-    test::CompressibleString(&rnd, 0.5, 1007, &p_v);
+    test::CompressibleString(&rnd, 0.5, 1007, &p_v, "");
     ASSERT_OK(Put(Key(i), p_v));
   }
 
@@ -605,7 +605,7 @@ TEST_F(DBTieredSecondaryCacheTest, IterateTest) {
   const int N = 256;
   for (int i = 0; i < N; i++) {
     std::string p_v;
-    test::CompressibleString(&rnd, 0.5, 1007, &p_v);
+    test::CompressibleString(&rnd, 0.5, 1007, &p_v, "");
     ASSERT_OK(Put(Key(i), p_v));
   }
 
@@ -675,7 +675,7 @@ TEST_P(DBTieredAdmPolicyTest, CompressedOnlyTest) {
   const int N = 256;
   for (int i = 0; i < N; i++) {
     std::string p_v;
-    test::CompressibleString(&rnd, 0.5, 1007, &p_v);
+    test::CompressibleString(&rnd, 0.5, 1007, &p_v, "");
     ASSERT_OK(Put(Key(i), p_v));
   }
 
